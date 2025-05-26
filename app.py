@@ -59,5 +59,14 @@ def webhook():
         action = data['action'].upper()
         symbol = data['symbol'].upper()
         # ... rest of your trade logic
+    except KeyError as e:
+        return jsonify({'error': f'Missing key in payload: {e}'}), 400
+
+    try:
+        ib.connect()
+    except Exception as e:
+        logging.error("Failed to connect to IB: %s", e)
+
+        logging.error("Failed to connect to IB: %s", e)
 
 
