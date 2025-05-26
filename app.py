@@ -48,4 +48,16 @@ threading.Thread(target=connect_ib).start()
 def webhook():
     global last_buy_qty
     token = request.args.get("token")
-    if token != WEBHOOK
+    if token != WEBHOOK:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid payload'}), 400
+        
+    try:
+        action = data['action'].upper()
+        symbol = data['symbol'].upper()
+        # ... rest of your trade logic
+
+
