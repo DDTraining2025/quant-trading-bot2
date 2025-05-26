@@ -27,7 +27,6 @@ client = SecretClient(vault_url=KV_URI, credential=credential)
 
 DISCORD_WEBHOOK_URL = client.get_secret("DISCORD-WEBHOOK-URL").value
 WEBHOOK_TOKEN = client.get_secret("WEBHOOK-TOKEN").value
-PORT = int(client.get_secret("PORT").value) if client.get_secret("PORT") else 5000
 
 # === Flask App ===
 app = Flask(__name__)
