@@ -44,6 +44,10 @@ def connect_ib():
 threading.Thread(target=connect_ib).start()
 
 # === Webhook Handler ===
+@app.route("/", methods=["GET"])
+def home():
+    return "✅ Quant Trading Bot is running. Use POST /webhook with a token to send trade requests."
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     global last_buy_qty
