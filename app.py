@@ -28,6 +28,17 @@ client = SecretClient(vault_url=KV_URI, credential=credential)
 DISCORD_WEBHOOK_URL = client.get_secret("DISCORD-WEBHOOK-URL").value
 WEBHOOK_TOKEN = client.get_secret("WEBHOOK-TOKEN").value
 
+def notify_discord(message: str):
+    try:
+        payload = {"content": message}
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(DISCORD_WEBHOOK_URL, json=payload, headers=headers)
+        if response.status_code != 204:
+            logging.warning(f"Discord notification failed: {response.status_code} {response.text}")
+    except Exception as e:
+        logging.error("Error sending Discord notification: %s", e)
+
+
 # === Flask App ===
 app = Flask(__name__)
 ib = IB()
@@ -67,15 +78,20 @@ def webhook():
         return jsonify({"error": "Unauthorized"}), 403
 
     if not ib.isConnected():
-        logging.warning("IBKR not connected")
-        return jsonify({"error": "IBKR not connected"}), 503
-
+        warning_msg = f"⚠️ IBKR NOT CONNECTED – Simulated trade: {data.get('action')} {data.get('quantity')} {data.get('symbol')}"
+        logging.warning(warning_msg)
+        notify_discord(warning_msg)
+        return jsonify({"warning": "IBKR not connected – Discord notified"}), 202
+        
     try:
         action = data['action'].upper()
         symbol = data['symbol'].upper()
         quantity = int(data.get("quantity", 0))
 
         logging.info(f"Received trade request: {action} {quantity} {symbol}")
+
+        notify_discord(f"📈 Trade Request: **{action} {quantity} {symbol}**")
+
 
         return jsonify({
             "status": "Trade accepted",
