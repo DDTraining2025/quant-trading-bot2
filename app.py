@@ -51,26 +51,27 @@ def home():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     global last_buy_qty
-    token = request.args.get("token")
-    if token != WEBHOOK:
-        return jsonify({"error": "Unauthorized"}), 403
 
     data = request.get_json()
     if not data:
+        logging.warning("No JSON received in request")
         return jsonify({'error': 'Invalid payload'}), 400
-        
+
+    token = data.get("token")
+    if token != WEBHOOK_TOKEN:
+        logging.warning("Unauthorized access attempt with token: %s", token)
+        return jsonify({"error": "Unauthorized"}), 403
+
     try:
         action = data['action'].upper()
         symbol = data['symbol'].upper()
-        # ... rest of your trade logic
+        quantity = int(data.get("quantity", 0))
+
+        logging.info(f"Received trade request: {action} {quantity} {symbol}")
+
+        # You may insert IBKR logic here...
+
+        return jsonify({"status": "Trade accepted", "symbol": symbol, "action": action, "quantity": quantity})
+    
     except KeyError as e:
         return jsonify({'error': f'Missing key in payload: {e}'}), 400
-
-    try:
-        ib.connect()
-    except Exception as e:
-        logging.error("Failed to connect to IB: %s", e)
-
-        logging.error("Failed to connect to IB: %s", e)
-
-
