@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
 from ib_insync import IB, Stock, MarketOrder
 import threading
+import asyncio
 import requests
-from datetime import datetime
 import os
 import logging
 from azure.identity import DefaultAzureCredential
@@ -33,15 +33,19 @@ app = Flask(__name__)
 ib = IB()
 last_buy_qty = {}
 
-# === IBKR Connection ===
+# === Proper IBKR Async Connection ===
 def connect_ib():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        ib.connect('127.0.0.1', 7497, clientId=1)
+        loop.run_until_complete(ib.connectAsync('127.0.0.1', 7497, clientId=1))
         logging.info("Connected to IBKR")
     except Exception as e:
         logging.error("Could not connect to IBKR: %s", e)
+    finally:
+        loop.close()
 
-threading.Thread(target=connect_ib).start()
+threading.Thread(target=connect_ib, daemon=True).start()
 
 # === Webhook Handler ===
 @app.route("/", methods=["GET"])
@@ -62,6 +66,10 @@ def webhook():
         logging.warning("Unauthorized access attempt with token: %s", token)
         return jsonify({"error": "Unauthorized"}), 403
 
+    if not ib.isConnected():
+        logging.warning("IBKR not connected")
+        return jsonify({"error": "IBKR not connected"}), 503
+
     try:
         action = data['action'].upper()
         symbol = data['symbol'].upper()
@@ -69,9 +77,12 @@ def webhook():
 
         logging.info(f"Received trade request: {action} {quantity} {symbol}")
 
-        # You may insert IBKR logic here...
+        return jsonify({
+            "status": "Trade accepted",
+            "symbol": symbol,
+            "action": action,
+            "quantity": quantity
+        })
 
-        return jsonify({"status": "Trade accepted", "symbol": symbol, "action": action, "quantity": quantity})
-    
     except KeyError as e:
         return jsonify({'error': f'Missing key in payload: {e}'}), 400
