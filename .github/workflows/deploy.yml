@@ -29,9 +29,10 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Function App
-        run: |
-          az functionapp deployment source config-zip \
-            --name quantbot2025 \
-            --resource-group QuantBotLinuxRG \
-            --src function.zip
+      - name: Deploy to Azure Function App (Remote Build)
+  run: |
+    az functionapp deployment source config-zip \
+      --name quantbot2025 \
+      --resource-group QuantBotLinuxRG \
+      --src function.zip \
+      --build-remote true
