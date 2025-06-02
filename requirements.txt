@@ -1,3 +1,5 @@
 requests
 python-dotenv
 fpdf
+azure-functions
+pytz
