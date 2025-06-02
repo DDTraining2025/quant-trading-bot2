@@ -1,1 +1,0 @@
-# MCP scoring logic
