@@ -1,4 +1,4 @@
-name: Deploy via GitHub Source to Azure Function App
+name: Deploy with Publish Profile to Azure Function App
 
 on:
   push:
@@ -6,21 +6,30 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Configure Deployment from GitHub Repo
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
         run: |
-          az functionapp deployment source config \
-            --name quantbot2025 \
-            --resource-group QuantBotLinuxRG \
-            --repo-url https://github.com/DDTraining2025/quant-trading-bot2 \
-            --branch main \
-            --github-token ${{ secrets.GITHUB_TOKEN }} \
-            --manual-integration
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Zip app for deployment
+        run: |
+          zip -r function.zip . -x '*.git*' 'venv/*' '__pycache__/*'
+
+      - name: Deploy to Azure Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: quantbot2025
+          package: function.zip
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
