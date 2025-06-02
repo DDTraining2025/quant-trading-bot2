@@ -32,6 +32,6 @@ jobs:
       - name: Deploy to Azure Function App
         run: |
           az functionapp deployment source config-zip \
-            --name QuantBot2025 \
-            --resource-group QuantBotGroup \
+            --name quantbot2025 \
+            --resource-group QuantBotLinuxRG \
             --src function.zip
