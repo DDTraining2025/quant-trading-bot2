@@ -1,4 +1,4 @@
-name: Deploy to Azure Function using Azure Login
+name: Deploy via GitHub Source to Azure Function App
 
 on:
   push:
@@ -6,33 +6,20 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Zip source
-        run: zip -r function.zip .
-
-      - name: Login to Azure
+      - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Function App (Remote Build)
+      - name: Configure Deployment from GitHub Repo
         run: |
-          az functionapp deployment source config-zip \
+          az functionapp deployment source config \
             --name quantbot2025 \
             --resource-group QuantBotLinuxRG \
-            --src function.zip \
-            --build-remote true
+            --repo-url https://github.com/DDTraining2025/quant-trading-bot2 \
+            --branch main \
+            --manual-integration
