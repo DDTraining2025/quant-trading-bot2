@@ -22,4 +22,5 @@ jobs:
             --resource-group QuantBotLinuxRG \
             --repo-url https://github.com/DDTraining2025/quant-trading-bot2 \
             --branch main \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
             --manual-integration
