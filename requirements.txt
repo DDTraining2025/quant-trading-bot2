@@ -1,6 +1,0 @@
-flask
-ib_insync
-requests
-azure-identity
-azure-keyvault-secrets
-gunicorn
