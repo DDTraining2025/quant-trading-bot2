@@ -3,6 +3,14 @@ import logging
 import requests
 import os
 import azure.functions as func
+import http.client as http_client
+
+# Enable HTTPS-level debugging
+http_client.HTTPConnection.debuglevel = 1
+logging.getLogger().setLevel(logging.DEBUG)
+requests_log = logging.getLogger("urllib3")
+requests_log.setLevel(logging.DEBUG)
+requests_log.propagate = True
 
 def main(timer: func.TimerRequest) -> None:
     now = datetime.datetime.utcnow()
@@ -10,13 +18,16 @@ def main(timer: func.TimerRequest) -> None:
 
     try:
         discord_url = os.getenv("DISCORDWEBHOOKNEWS")
-        logging.info(f"Retrieved webhook: {discord_url}")
+        logging.debug(f"Retrieved webhook: {discord_url}")
 
         if not discord_url:
-            logging.error("DISCORDWEBHOOKNEWS is empty or not loaded.")
-            return
+            raise EnvironmentError("❌ DISCORDWEBHOOKNEWS is empty or not loaded")
 
-        response = requests.post(discord_url, json={"content": f"🚨 Test Alert at {now}"})
-        logging.info(f"Discord POST status: {response.status_code}, body: {response.text}")
+        payload = {"content": f"🚨 Test Alert from Azure Function at {now.isoformat()} UTC"}
+        response = requests.post(discord_url, json=payload)
+        response.raise_for_status()
+
+        logging.info(f"✅ Discord POST status: {response.status_code}, body: {response.text}")
+
     except Exception as e:
-        logging.exception("Error while posting to Discord")
+        logging.exception("❌ Error while posting to Discord")
