@@ -1,15 +1,18 @@
 import datetime
 import logging
-import pytz
+import requests
+import os
 import azure.functions as func
 
 def main(timer: func.TimerRequest) -> None:
-    now_utc = datetime.datetime.now(datetime.timezone.utc)
-    now_et = now_utc.astimezone(pytz.timezone("US/Eastern"))
+    now = datetime.datetime.utcnow()
+    logging.info(f"[TEST] Intraday alert triggered at {now.isoformat()}")
 
-    if now_et.hour < 4 or now_et.hour >= 20:
-        logging.info(f"Outside active hours (now ET: {now_et}). Skipping.")
-        return
-
-    logging.info(f"Running IntradayAlert at {now_et.isoformat()}")
-    # Your alert logic here
+    discord_url = os.getenv("DISCORD-WEBHOOK-NEWS")
+    if discord_url:
+        message = {
+            "content": f"🚨 Test Alert from IntradayAlert at {now.isoformat()} UTC"
+        }
+        requests.post(discord_url, json=message)
+    else:
+        logging.warning("DISCORD-WEBHOOK-NEWS not found in environment variables")
