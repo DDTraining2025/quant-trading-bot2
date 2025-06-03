@@ -26,8 +26,9 @@ jobs:
       - name: List project files before zipping
         run: ls -R .
 
-      - name: Zip function app
+      - name: Zip function app (correct structure)
         run: |
+          cd $GITHUB_WORKSPACE
           zip -r function.zip . -x '*.git*' 'venv/*' '__pycache__/*'
 
       - name: Show contents of function.zip
