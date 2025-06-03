@@ -26,11 +26,11 @@ jobs:
       - name: List project files before zip
         run: ls -R .
 
-      - name: Create clean zip (correct structure)
+      - name: Create clean zip from selected folders
         run: |
-          mkdir build
-          cp -r IntradayAlert OutcomeTracker Watchlist host.json requirements.txt build/
-          cd build
+          mkdir zipdir
+          cp -r IntradayAlert OutcomeTracker Watchlist EnvDebug host.json requirements.txt zipdir/
+          cd zipdir
           zip -r ../function.zip .
 
       - name: Show contents of function.zip
