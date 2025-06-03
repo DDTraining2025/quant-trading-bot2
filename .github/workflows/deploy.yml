@@ -23,12 +23,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: List project files before zipping
+      - name: List project files before zip
         run: ls -R .
 
-      - name: Create clean zip with correct folders
+      - name: Create clean zip (correct structure)
         run: |
-          zip -r function.zip IntradayAlert OutcomeTracker Watchlist host.json requirements.txt
+          mkdir build
+          cp -r IntradayAlert OutcomeTracker Watchlist host.json requirements.txt build/
+          cd build
+          zip -r ../function.zip .
 
       - name: Show contents of function.zip
         run: unzip -l function.zip
