@@ -23,13 +23,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: List project files before zipping
+      - name: List project files before zip
         run: ls -R .
 
-      - name: Zip function app (correct structure)
+      - name: Create clean zip from selected folders
         run: |
-          cd $GITHUB_WORKSPACE
-          zip -r function.zip . -x '*.git*' 'venv/*' '__pycache__/*'
+          mkdir zipdir
+          cp -r IntradayAlert OutcomeTracker Watchlist host.json requirements.txt zipdir/
+          cd zipdir
+          zip -r ../function.zip .
 
       - name: Show contents of function.zip
         run: unzip -l function.zip
