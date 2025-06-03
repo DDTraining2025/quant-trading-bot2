@@ -3,30 +3,37 @@ name: Zip Deploy Azure Python Function
 on:
   push:
     branches:
-      - main  # or change to your branch
+      - main  # or your preferred deployment branch
 
 jobs:
   zip-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: 📦 Checkout code
       uses: actions/checkout@v3
 
-    - name: Setup Python
+    - name: 🐍 Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: Install dependencies and build zip
+    - name: 🧪 Install dependencies and build zip
       run: |
+        # Create folders
         mkdir -p build/.python_packages/lib/site-packages
+
+        # Install all Python packages into site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
-        cp -r IntradayAlert build/
-        cp requirements.txt build/
+
+        # Copy all function folders (add more if needed)
+        cp -r requirements.txt build/
+        cp -r IntradayAlert tracker watchlist logger rss_listener nlp_processor entry_target build/ || true
+
+        # Zip the build folder into function.zip
         cd build && zip -r ../function.zip .
 
-    - name: Deploy to Azure
+    - name: 🚀 Deploy to Azure Function App
       uses: Azure/functions-action@v1
       with:
         app-name: quant-bot-app
