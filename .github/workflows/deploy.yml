@@ -20,17 +20,14 @@ jobs:
 
     - name: 🧪 Install dependencies and build zip
       run: |
-        # Create folders
         mkdir -p build/.python_packages/lib/site-packages
-
-        # Install all Python packages into site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
-        # Copy all function folders and shared files
-        cp -r requirements.txt build/
-        cp -r IntradayAlert tracker watchlist logger rss_listener nlp_processor entry_target build/ || true
+        # Copy valid function folders (case-sensitive)
+        cp -r requirements.txt host.json build/
+        cp -r IntradayAlert Watchlist OutcomeTracker EnvDebug build/
 
-        # Zip the build folder into function.zip
+        # Zip the build folder
         cd build && zip -r ../function.zip .
 
     - name: 🚀 Deploy to Azure Function App
