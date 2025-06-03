@@ -3,3 +3,5 @@ python-dotenv
 fpdf
 azure-functions
 pytz
+azure-identity
+azure-keyvault-secrets
