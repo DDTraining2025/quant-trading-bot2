@@ -1,36 +1,37 @@
-import os
 import requests
+import os
+import datetime
+import logging
 
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+FINNHUB_KEY = os.getenv("Finnhub")
 
-BASE_URL = "https://finnhub.io/api/v1"
+def get_daily_high_low_close(ticker):
+    try:
+        now = datetime.datetime.utcnow()
+        from_time = int(datetime.datetime(now.year, now.month, now.day).timestamp())
+        to_time = int(now.timestamp())
 
-def get_quote(symbol):
-    url = f"{BASE_URL}/quote"
-    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
-    r = requests.get(url, params=params)
-    r.raise_for_status()
-    return r.json()
+        url = (
+            f"https://finnhub.io/api/v1/stock/candle"
+            f"?symbol={ticker}&resolution=5&from={from_time}&to={to_time}&token={FINNHUB_KEY}"
+        )
 
-def get_company_profile(symbol):
-    url = f"{BASE_URL}/stock/profile2"
-    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
-    r = requests.get(url, params=params)
-    r.raise_for_status()
-    return r.json()
+        resp = requests.get(url)
+        resp.raise_for_status()
+        data = resp.json()
 
-def get_candles(symbol, resolution="5", count=1):
-    from time import time
-    end = int(time())
-    start = end - (count * 60 * 5)  # last 5-min block(s)
-    url = f"{BASE_URL}/stock/candle"
-    params = {
-        "symbol": symbol,
-        "resolution": resolution,
-        "from": start,
-        "to": end,
-        "token": FINNHUB_API_KEY
-    }
-    r = requests.get(url, params=params)
-    r.raise_for_status()
-    return r.json()
+        if data.get("s") != "ok":
+            logging.warning(f"Finnhub returned non-ok status for {ticker}: {data}")
+            return None, None
+
+        highs = data.get("h", [])
+        closes = data.get("c", [])
+
+        if not highs or not closes:
+            return None, None
+
+        return round(max(highs), 2), round(closes[-1], 2)
+
+    except Exception as e:
+        logging.exception(f"Failed to fetch candle data for {ticker}")
+        return None, None
