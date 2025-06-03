@@ -26,7 +26,7 @@ jobs:
         # Install all Python packages into site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
-        # Copy all function folders (add more if needed)
+        # Copy all function folders and shared files
         cp -r requirements.txt build/
         cp -r IntradayAlert tracker watchlist logger rss_listener nlp_processor entry_target build/ || true
 
