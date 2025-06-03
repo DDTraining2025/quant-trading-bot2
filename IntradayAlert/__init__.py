@@ -8,11 +8,11 @@ def main(timer: func.TimerRequest) -> None:
     now = datetime.datetime.utcnow()
     logging.info(f"[TEST] Intraday alert triggered at {now.isoformat()}")
 
-    discord_url = os.getenv("DISCORD-WEBHOOK-NEWS")
+    discord_url = os.getenv("DISCORDWEBHOOKNEWS")
     if discord_url:
         message = {
             "content": f"🚨 Test Alert from IntradayAlert at {now.isoformat()} UTC"
         }
         requests.post(discord_url, json=message)
     else:
-        logging.warning("DISCORD-WEBHOOK-NEWS not found in environment variables")
+        logging.warning("DISCORDWEBHOOKNEWS not found in environment variables")
