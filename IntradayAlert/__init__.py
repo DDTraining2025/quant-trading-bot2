@@ -2,17 +2,28 @@ import datetime
 import logging
 import requests
 import os
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 import azure.functions as func
+
+
+def get_secret():
+    kv_url = "https://quant-trading-vault.vault.azure.net/"
+    credential = DefaultAzureCredential()
+    client = SecretClient(vault_url=kv_url, credential=credential)
+    return client.get_secret("DISCORDWEBHOOKNEWS").value
+
 
 def main(timer: func.TimerRequest) -> None:
     now = datetime.datetime.utcnow()
     logging.info(f"[TEST] Intraday alert triggered at {now.isoformat()}")
 
-    discord_url = os.getenv("DISCORDWEBHOOKNEWS") or "https://discord.com/api/webhooks/1379185897626402836/Zd3Wb7aSErubDBlHp-bGG6kOY5ragzB0Fuyrza3id4sgjIXvJhYgGHFCuNCDpkID_qUX"
-    if discord_url:
+    try:
+        discord_url = get_secret()
         message = {
             "content": f"🚨 Test Alert from IntradayAlert at {now.isoformat()} UTC"
         }
-        requests.post(discord_url, json=message)
-    else:
-        logging.warning("DISCORDWEBHOOKNEWS not found in environment variables")
+        response = requests.post(discord_url, json=message)
+        logging.info(f"Sent to Discord, status: {response.status_code}")
+    except Exception as e:
+        logging.error(f"❌ Failed to post Discord alert: {str(e)}")
