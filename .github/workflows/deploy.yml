@@ -3,7 +3,7 @@ name: Zip Deploy Azure Python Function
 on:
   push:
     branches:
-      - main  # or your preferred deployment branch
+      - main  # Adjust if you use a different deployment branch
 
 jobs:
   zip-deploy:
@@ -24,14 +24,12 @@ jobs:
         mkdir -p build/.python_packages/lib/site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
-        # Copy project files
-        cp -r requirements.txt host.json build/
-
-        # Copy all function and logic folders
+        # Copy project and function files
+        cp requirements.txt host.json build/
         cp -r IntradayAlert Watchlist OutcomeTracker EnvDebug \
               rss_listener nlp_processor entry_target logger build/
 
-        # Zip into deployment bundle
+        # Create deployable zip bundle
         cd build && zip -r ../function.zip .
 
     - name: 🚀 Deploy to Azure Function App
