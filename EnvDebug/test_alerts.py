@@ -1,4 +1,4 @@
-# test_alerts.py
+# EnvDebug/test_alerts.py
 
 import os
 import datetime
@@ -6,28 +6,32 @@ import requests
 import csv
 from pathlib import Path
 
+# Load Discord webhook URLs from environment variables
 DISCORD_WEBHOOKS = {
     "news": os.getenv("DISCORD-WEBHOOK-NEWS"),
     "watchlist": os.getenv("DISCORD-Watchlist"),
     "review": os.getenv("DISCORD-Review"),
 }
 
-LOG_PATH = Path("logs") / "mcp_test_log.csv"
+# Azure Functions can only write to /tmp/
+LOG_PATH = Path("/tmp/mcp_test_log.csv")
 
 def post_to_discord(channel, message):
-    webhook_url = DISCORD_WEBHOOKS.get(channel)
-    if not webhook_url:
+    url = DISCORD_WEBHOOKS.get(channel)
+    if not url:
         print(f"❌ No webhook configured for {channel}")
         return
 
-    resp = requests.post(webhook_url, json={"content": message})
-    if resp.ok:
-        print(f"✅ Sent to {channel}")
-    else:
-        print(f"❌ Failed for {channel}: {resp.status_code} - {resp.text}")
+    try:
+        resp = requests.post(url, json={"content": message.strip()})
+        if resp.ok:
+            print(f"✅ Sent to {channel}")
+        else:
+            print(f"❌ Failed for {channel}: {resp.status_code} - {resp.text}")
+    except Exception as e:
+        print(f"❌ Exception posting to Discord {channel}: {e}")
 
 def log_alert(channel, symbol, headline, mcp_score, sentiment, session, price, volume):
-    LOG_PATH.parent.mkdir(exist_ok=True)
     row = {
         "timestamp_et": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "timestamp_gmt": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
@@ -105,10 +109,11 @@ Result: ✅ Win
         }
     }
 
-if __name__ == "__main__":
+# Required for Azure import
+def main():
     messages = generate_test_messages()
     for channel, data in messages.items():
-        post_to_discord(channel, data["text"].strip())
+        post_to_discord(channel, data["text"])
         log_alert(
             channel=channel,
             symbol=data["symbol"],
@@ -119,3 +124,6 @@ if __name__ == "__main__":
             price=data["price"],
             volume=data["volume"]
         )
+
+if __name__ == "__main__":
+    main()
