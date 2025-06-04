@@ -1,35 +1,35 @@
-# EnvDebug/test_alerts.py
-
 import os
 import datetime
 import requests
 import csv
+import logging
 from pathlib import Path
 
-# Load Discord webhook URLs from environment variables
+# ✅ Correct ENV keys matching Azure Key Vault bindings
 DISCORD_WEBHOOKS = {
-    "news": os.getenv("DISCORD-WEBHOOK-NEWS"),
-    "watchlist": os.getenv("DISCORD-Watchlist"),
-    "review": os.getenv("DISCORD-Review"),
+    "news": os.getenv("DISCORDWEBHOOKNEWS"),
+    "watchlist": os.getenv("DISCORDWATCHLIST"),
+    "review": os.getenv("DISCORDREVIEW"),
 }
 
-# Azure Functions can only write to /tmp/
+# ✅ Azure Functions: write to /tmp directory
 LOG_PATH = Path("/tmp/mcp_test_log.csv")
 
 def post_to_discord(channel, message):
     url = DISCORD_WEBHOOKS.get(channel)
     if not url:
-        print(f"❌ No webhook configured for {channel}")
+        logging.warning(f"❌ No webhook configured for {channel}")
         return
 
+    logging.info(f"🔗 Posting to {channel} -> {url}")
     try:
         resp = requests.post(url, json={"content": message.strip()})
         if resp.ok:
-            print(f"✅ Sent to {channel}")
+            logging.info(f"✅ Sent alert to {channel}")
         else:
-            print(f"❌ Failed for {channel}: {resp.status_code} - {resp.text}")
+            logging.error(f"❌ Failed for {channel}: {resp.status_code} - {resp.text}")
     except Exception as e:
-        print(f"❌ Exception posting to Discord {channel}: {e}")
+        logging.exception(f"❌ Exception while posting to {channel}: {e}")
 
 def log_alert(channel, symbol, headline, mcp_score, sentiment, session, price, volume):
     row = {
@@ -45,12 +45,16 @@ def log_alert(channel, symbol, headline, mcp_score, sentiment, session, price, v
         "channel": channel
     }
 
-    write_header = not LOG_PATH.exists()
-    with open(LOG_PATH, mode="a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
+    try:
+        write_header = not LOG_PATH.exists()
+        with open(LOG_PATH, mode="a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=row.keys())
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+        logging.info(f"📄 Logged alert for {symbol} to {LOG_PATH}")
+    except Exception as e:
+        logging.exception("❌ Failed to log MCP row")
 
 def generate_test_messages():
     now = datetime.datetime.utcnow()
@@ -109,8 +113,8 @@ Result: ✅ Win
         }
     }
 
-# Required for Azure import
 def main():
+    logging.info("🟢 test_alerts.main() started")
     messages = generate_test_messages()
     for channel, data in messages.items():
         post_to_discord(channel, data["text"])
@@ -124,6 +128,4 @@ def main():
             price=data["price"],
             volume=data["volume"]
         )
-
-if __name__ == "__main__":
-    main()
+    logging.info("✅ test_alerts.main() finished")
