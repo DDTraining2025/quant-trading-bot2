@@ -20,8 +20,8 @@ def run_watchlist_logic():
     if qualified_stocks:
         message = format_watchlist_message(qualified_stocks)
     else:
-        message = f"🌙 Watchlist – {today_str}
-No stocks met the MCP/sentiment criteria for inclusion."
+        message = f"""🌙 Watchlist – {today_str}
+No stocks met the MCP/sentiment criteria for inclusion."""
         write_log({
             "date": today_str,
             "ticker": "N/A",
