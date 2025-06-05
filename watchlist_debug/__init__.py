@@ -1,107 +1,62 @@
-import os
-import logging
-import datetime
-import azure.functions as func
+import unittest
+from unittest.mock import patch, MagicMock
+from watchlist import process_entry
 
-from rss_listener import fetch_rss_entries
-from nlp_processor import analyze_sentiment, tag_keywords
-from finnhub_api import get_quote, get_company_profile
-from mcp_score import calculate_mcp_score
-from entry_target import calculate_trade_plan
-from discord_poster import send_discord_alert
-from logger import log_alert, format_log_data
+class TestWatchlistProcessEntry(unittest.TestCase):
+    
+    @patch("watchlist.get_quote")
+    @patch("watchlist.get_company_profile")
+    @patch("watchlist.analyze_sentiment")
+    @patch("watchlist.tag_keywords")
+    def test_valid_entry(self, mock_keywords, mock_sentiment, mock_profile, mock_quote):
+        # Mocked entry object
+        entry = MagicMock()
+        entry.title = "$ABC wins $25M telecom contract"
+        entry.link = "http://example.com/pr"
+        entry.summary = "Awarded major telecom infrastructure contract."
 
-WATCHLIST_WEBHOOK = os.getenv("DISCORDWATCHLIST")
+        # Mocking NLP + FinBERT
+        mock_sentiment.return_value = ("Positive", 0.95)
+        mock_keywords.return_value = ["contract", "telecom"]
 
-FEEDS = [
-    "https://www.globenewswire.com/RssFeed/industry/16/Telecommunications/feedTitle/GlobeNewswire-Telecom.xml",
-    "https://www.prnewswire.com/rss/technology-latest-news.rss"
-]
+        # Mocking API responses
+        mock_quote.return_value = {"c": 0.75, "v": 500000}
+        mock_profile.return_value = {"marketCapitalization": 35}
 
+        result = process_entry(entry)
 
-def process_entry(entry):
-    try:
-        headline = entry.title
-        link = entry.link
-        summary = entry.summary
+        self.assertIsNotNone(result)
+        msg, log_data = result
+        self.assertIn("$ABC", msg)
+        self.assertEqual(log_data["ticker"], "ABC")
+        self.assertGreaterEqual(log_data["mcp_score"], 0)
 
-        tickers = [w[1:] for w in headline.split() if w.startswith("$") and len(w) <= 6]
-        if not tickers:
-            return None
+    def test_entry_with_no_ticker(self):
+        entry = MagicMock()
+        entry.title = "Company announces new partnership"
+        entry.link = "http://example.com/pr"
+        entry.summary = "Exciting new tech partnership."
 
-        ticker = tickers[0].upper()
-        sentiment, _ = analyze_sentiment(headline)
-        keywords = tag_keywords(summary + " " + headline)
+        result = process_entry(entry)
+        self.assertIsNone(result)
 
-        quote = get_quote(ticker)
-        profile = get_company_profile(ticker)
-        price = round(quote.get("c", 0), 2)
-        volume = quote.get("v", 0)
-        market_cap = profile.get("marketCapitalization", 0)
+    @patch("watchlist.get_quote")
+    @patch("watchlist.get_company_profile")
+    @patch("watchlist.analyze_sentiment")
+    @patch("watchlist.tag_keywords")
+    def test_market_cap_filter(self, mock_keywords, mock_sentiment, mock_profile, mock_quote):
+        entry = MagicMock()
+        entry.title = "$XYZ releases new AI platform"
+        entry.link = "http://example.com/pr"
+        entry.summary = "Innovative product launch."
 
-        if not price or market_cap > 50:
-            return None
+        mock_sentiment.return_value = ("Neutral", 0.5)
+        mock_keywords.return_value = ["ai", "platform"]
+        mock_quote.return_value = {"c": 1.20, "v": 100000}
+        mock_profile.return_value = {"marketCapitalization": 100}  # > $50M cap
 
-        mcp = calculate_mcp_score(keywords, sentiment, volume, ticker)
-        trade_plan = calculate_trade_plan(price)
-        if not trade_plan or len(trade_plan) != 3:
-            logging.warning(f"⚠️ Invalid trade plan for {ticker} at price {price}")
-            return None
+        result = process_entry(entry)
+        self.assertIsNone(result)
 
-        entry_price, stop, target = trade_plan
-
-        if mcp < 7.5:
-            return None
-
-        msg = (
-            f"📌 ${ticker} | PR: {headline}\n"
-            f"Closed: ${price} | Session: Regular\n"
-            f"MCP: {mcp} | Sentiment: {sentiment} | Volume: {volume:,}\n"
-            f"Setup for tomorrow: Entry ${entry_price}, Target ${target}, Stop ${stop}\n"
-            f"📎 [View PR]({link})"
-        )
-
-        log_data = format_log_data(
-            ticker=ticker,
-            price=price,
-            volume=volume,
-            sentiment=sentiment,
-            mcp_score=mcp,
-            session="Regular",
-            label="Watchlist"
-        )
-
-        return msg, log_data
-
-    except Exception as e:
-        logging.exception(f"❌ Error processing entry: {entry.title}")
-        return None
-
-
-def main(timer: func.TimerRequest) -> None:
-    now = datetime.datetime.utcnow()
-    logging.info(f"🌙 [Watchlist] Triggered at {now.isoformat()}")
-
-    try:
-        entries = fetch_rss_entries(FEEDS)
-        logging.info(f"📥 Fetched {len(entries)} PRs")
-
-        strong_setups = []
-
-        for entry in entries:
-            result = process_entry(entry)
-            if result:
-                msg, log_data = result
-                strong_setups.append(msg)
-                log_alert(log_data)
-
-        if strong_setups:
-            today = now.strftime("%B %d")
-            send_discord_alert(f"🌙 **Watchlist – {today}**", webhook_url=WATCHLIST_WEBHOOK)
-            for msg in strong_setups:
-                send_discord_alert(msg, webhook_url=WATCHLIST_WEBHOOK)
-        else:
-            logging.info("ℹ️ No strong setups for watchlist")
-
-    except Exception as e:
-        logging.exception("❌ Watchlist function failed")
+if __name__ == "__main__":
+    unittest.main()
