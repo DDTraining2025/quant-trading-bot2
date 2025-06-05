@@ -1,5 +1,5 @@
 feedparser
-finhub-python
+finnhub-python
 transformers
 torch
 scikit-learn
