@@ -1,4 +1,9 @@
 feedparser
+finhub-python
+transformers
+torch
+scikit-learn
+spacy
 requests
 python-dotenv
 fpdf
