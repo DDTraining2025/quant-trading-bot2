@@ -2,8 +2,10 @@ import csv
 import os
 import datetime
 import logging
+import traceback
 
 LOG_FILE = "logs/mcp_log.csv"
+ERROR_LOG = "logs/error_log.txt"
 os.makedirs("logs", exist_ok=True)
 
 def load_today_alerts():
@@ -42,3 +44,23 @@ def log_outcome(result: dict):
         if write_header:
             writer.writeheader()
         writer.writerow(result)
+
+def log_error(context: str, exception: Exception):
+    with open(ERROR_LOG, "a") as f:
+        f.write(f"\n[{datetime.datetime.utcnow().isoformat()}] {context}\n")
+        f.write(f"{traceback.format_exc()}\n")
+
+def format_log_data(ticker, price, volume, sentiment, sentiment_confidence, mcp_score, session, label):
+    return {
+        "date": datetime.datetime.utcnow().date().isoformat(),
+        "ticker": ticker,
+        "entry": price,
+        "stop": round(price * 0.9, 2),
+        "target": round(price * 1.25, 2),
+        "volume": volume,
+        "sentiment": sentiment,
+        "sentiment_conf": sentiment_confidence,
+        "mcp_score": mcp_score,
+        "session": session,
+        "type": label
+    }
