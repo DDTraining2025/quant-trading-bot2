@@ -1,37 +1,40 @@
-import requests
 import os
-import datetime
-import logging
+import requests
+from logger import log_error
 
-FINNHUB_KEY = os.getenv("Finnhub")
+FINNHUB_API_KEY = os.getenv("FINNHUB")
+BASE_URL = "https://finnhub.io/api/v1"
 
-def get_daily_high_low_close(ticker):
+def fetch_quote(ticker: str) -> dict:
     try:
-        now = datetime.datetime.utcnow()
-        from_time = int(datetime.datetime(now.year, now.month, now.day).timestamp())
-        to_time = int(now.timestamp())
-
-        url = (
-            f"https://finnhub.io/api/v1/stock/candle"
-            f"?symbol={ticker}&resolution=5&from={from_time}&to={to_time}&token={FINNHUB_KEY}"
-        )
-
-        resp = requests.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-
-        if data.get("s") != "ok":
-            logging.warning(f"Finnhub returned non-ok status for {ticker}: {data}")
-            return None, None
-
-        highs = data.get("h", [])
-        closes = data.get("c", [])
-
-        if not highs or not closes:
-            return None, None
-
-        return round(max(highs), 2), round(closes[-1], 2)
-
+        url = f"{BASE_URL}/quote?symbol={ticker}&token={FINNHUB_API_KEY}"
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
-        logging.exception(f"Failed to fetch candle data for {ticker}")
-        return None, None
+        log_error(f"Error fetching quote for {ticker}", e)
+        return {}
+
+def fetch_company_profile(ticker: str) -> dict:
+    try:
+        url = f"{BASE_URL}/stock/profile2?symbol={ticker}&token={FINNHUB_API_KEY}"
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        log_error(f"Error fetching company profile for {ticker}", e)
+        return {}
+
+def fetch_float_and_shares_outstanding(ticker: str) -> dict:
+    try:
+        url = f"{BASE_URL}/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_API_KEY}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        return {
+            "float": data.get("metric", {}).get("float"),
+            "shares_outstanding": data.get("metric", {}).get("sharesOutstanding")
+        }
+    except Exception as e:
+        log_error(f"Error fetching float data for {ticker}", e)
+        return {}
