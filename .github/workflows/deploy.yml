@@ -28,15 +28,12 @@ jobs:
           IntradayAlert \
           Watchlist \
           OutcomeTracker \
-          EnvDebug \
           rss_listener \
           nlp_processor \
           finnhub_api \
           entry_target \
           discord_poster \
           db_writer \
-          tracker_debug \
-          watchlist_debug \
           logger \
           keyvault_loader \
           build/
