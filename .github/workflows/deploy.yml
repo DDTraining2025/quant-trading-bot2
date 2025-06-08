@@ -37,7 +37,7 @@ jobs:
           ls -R .
 
       - name: Publish Function App
-        run: func azure functionapp publish quant-bot-app --python
+        run: func azure functionapp publish QuantBot2025 --python
 
       - name: List Functions in Azure
-        run: func azure functionapp list-functions quant-bot-app
+        run: func azure functionapp list-functions QuantBot2025
