@@ -1,40 +1,51 @@
 import os
 import psycopg2
 from logger import log_error, log_info
-from keyvaultloader import load_secrets
+from keyvaultloader import load_secrets_from_vault
 
-# Load secrets from Azure Key Vault
-load_secrets(["PG_HOST", "PG_DATABASE", "PG_USER", "PG_PASSWORD"])
+# Load secrets securely from Azure Key Vault
+load_secrets_from_vault()
 
 def connect_pg():
     return psycopg2.connect(
-        host=os.getenv("PG_HOST"),
-        dbname=os.getenv("PG_DATABASE"),
-        user=os.getenv("PG_USER"),
-        password=os.getenv("PG_PASSWORD"),
+        host=os.getenv("pghost"),
+        dbname=os.getenv("pgdatabase"),
+        user=os.getenv("pguser"),
+        password=os.getenv("pgpassword"),
         sslmode="require"
     )
 
-def log_alert(ticker: str, score: float, entry: float, stop: float, target: float, pr_title: str):
+def log_alert(
+    ticker: str,
+    score: float,
+    entry: float,
+    stop: float,
+    target: float,
+    pr_title: str
+):
     try:
-        conn = connect_pg()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO alerts (ticker, score, entry, stop, target, pr_title, alert_time)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW())
-        """, (ticker.upper(), score, entry, stop, target, pr_title.strip()))
-        conn.commit()
-        cur.close()
-        conn.close()
-        log_info(f"✅ Alert logged for {ticker}")
+        with connect_pg() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO alerts
+                        (ticker, score, entry, stop, target, pr_title, alert_time)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    """,
+                    (ticker.upper(), score, entry, stop, target, pr_title.strip())
+                )
+            conn.commit()
+        log_info(f"✅ Alert logged for {ticker.upper()}")
     except Exception as e:
         log_error(f"❌ Failed to log alert for {ticker}", e)
 
-# Optional CLI test
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mock", type=str, help="Mock ticker")
+
+    parser = argparse.ArgumentParser(
+        description="Mock alert insertion for testing."
+    )
+    parser.add_argument("--mock", type=str, help="Mock ticker symbol")
     args = parser.parse_args()
 
     if args.mock:
