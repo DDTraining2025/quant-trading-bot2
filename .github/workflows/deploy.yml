@@ -3,7 +3,7 @@ name: 🚀 Zip Deploy Azure Python Function
 on:
   push:
     branches:
-      - main  # Trigger only on main branch
+      - main
 
 jobs:
   zip-deploy:
@@ -20,11 +20,9 @@ jobs:
 
     - name: 📁 Install dependencies and prepare build folder
       run: |
-        # Create Python package directory inside build/
         mkdir -p build/.python_packages/lib/site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
-        # Copy all function folders and core files
         cp requirements.txt host.json build/
         cp -r \
           IntradayAlert \
@@ -43,25 +41,20 @@ jobs:
           keyvault_loader \
           build/
 
-    - name: ✅ Verify build structure before zipping
+    - name: 🔍 Show build folder contents
       run: |
-        echo "Contents of build/:" && ls -lh build/
-        echo "---"
-        echo "IntradayAlert/ should contain function.json and __init__.py:"
-        ls -lh build/IntradayAlert/
-        echo "---"
-        echo "Root should contain host.json:"
-        cat build/host.json || echo "host.json missing"
+        echo "::group::Build folder structure"
+        tree build/
+        echo "::endgroup::"
 
     - name: 📦 Create deployment package
       run: |
         cd build
-        zip -r ../function.zip .
+        zip -r ../function.zip * .[^.]*
 
     - name: 🚀 Deploy to Azure Function App
       uses: Azure/functions-action@v1
       with:
-        app-name: quant-bot-app
+        app-name: quant-bot-app  # <-- update if different
         package: function.zip
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-
