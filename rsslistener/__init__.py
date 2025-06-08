@@ -1,10 +1,17 @@
 import feedparser
+import azure.functions as func
 from datetime import datetime, timezone, timedelta
 import pytz
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# RSS Feeds to watch
+feed_urls = [
+    "https://www.globenewswire.com/RssFeed/industry/16/Telecommunications/feedTitle/GlobeNewswire-Telecom.xml",
+    "https://www.prnewswire.com/rss/technology-latest-news.rss"
+]
 
 def fetch_rss_entries(feed_urls):
     entries = []
@@ -37,8 +44,10 @@ def fetch_rss_entries(feed_urls):
 
     return entries
 
-# RSS Feeds to watch
-feed_urls = [
-    "https://www.globenewswire.com/RssFeed/industry/16/Telecommunications/feedTitle/GlobeNewswire-Telecom.xml",
-    "https://www.prnewswire.com/rss/technology-latest-news.rss"
-]
+def main(timer: func.TimerRequest) -> None:
+    logging.info("RSS Listener triggered")
+    entries = fetch_rss_entries(feed_urls)
+    logging.info(f"Fetched {len(entries)} recent entries")
+
+    for entry in entries:
+        logging.info(f"Title: {entry['title']}, Published ET: {entry['published_et']}, Link: {entry['link']}")
