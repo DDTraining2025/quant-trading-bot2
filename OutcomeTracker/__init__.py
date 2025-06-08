@@ -4,8 +4,8 @@ import datetime
 import azure.functions as func
 
 from logger import load_today_alerts, log_outcome
-from finnhub_api import get_daily_high_low_close
-from discord_poster import send_discord_alert
+from finnhubapi import get_daily_high_low_close
+from discordposter import send_discord_alert
 
 DISCORD_REVIEW_WEBHOOK = os.getenv("DISCORDREVIEW")
 
