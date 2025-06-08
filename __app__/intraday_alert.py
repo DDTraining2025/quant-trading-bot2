@@ -35,7 +35,7 @@ def save_seen_ids(seen):
 
 @bp.function_name(name="IntradayAlert")
 @bp.timer_trigger(schedule="0 */5 * * * *")  # every 5 minutes
-def main(timer: func.TimerRequest):
+def main(timer: func.TimerRequest) -> None:
     now = datetime.datetime.utcnow()
     logging.info(f"📡 [Intraday] Triggered at {now.isoformat()}")
 
