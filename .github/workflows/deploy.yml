@@ -54,14 +54,29 @@ jobs:
         if [ -f "requirements.txt" ]; then
           echo "📦 Installing dependencies..."
           python -m pip install --upgrade pip
-          pip install -r requirements.txt --target .python_packages/lib/site-packages --implementation cp --python-version 3.10 --platform linux_x86_64 --only-binary=:all:
+          
+          # First try to install with platform-specific settings for most packages
+          pip install -r requirements.txt --target .python_packages/lib/site-packages --upgrade --no-cache-dir || {
+            echo "⚠️  Standard install failed, trying alternative method..."
+            
+            # Install each package individually to handle problematic ones
+            while read -r package; do
+              if [[ ! "$package" =~ ^[[:space:]]*# ]] && [[ -n "$package" ]]; then
+                package_name=$(echo "$package" | sed 's/[<>=].*//')
+                echo "Installing: $package_name"
+                pip install "$package" --target .python_packages/lib/site-packages --upgrade --no-cache-dir || {
+                  echo "⚠️  Failed to install $package_name, trying without binary constraints..."
+                  pip install "$package" --target .python_packages/lib/site-packages --upgrade --no-cache-dir --no-binary=:all: || {
+                    echo "❌ Failed to install $package_name - skipping"
+                  }
+                }
+              fi
+            done < requirements.txt
+          }
         else
           echo "❌ ERROR: requirements.txt not found"
           exit 1
         fi
-        
-        # Also install directly to root for compatibility
-        pip install -r requirements.txt --target . --no-deps 2>/dev/null || true
         
     - name: ✅ Validate and clean Azure Functions structure
       run: |
