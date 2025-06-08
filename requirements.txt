@@ -1,11 +1,7 @@
 feedparser
-finnhub-python
-
 requests
-python-dotenv
-fpdf
 azure-functions
 pytz
 azure-identity
 azure-keyvault-secrets
-
+psycopg2-binary
