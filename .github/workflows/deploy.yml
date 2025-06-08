@@ -35,3 +35,4 @@ jobs:
         run: func azure functionapp publish quant-bot-app --python
         working-directory: quant-trading-bot2/quant-trading-bot2
 
+
