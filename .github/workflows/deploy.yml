@@ -1,42 +1,62 @@
-name: Zip Deploy Azure Python Function
+name: 🚀 Zip Deploy Azure Python Function
 
 on:
   push:
     branches:
-      - main
+      - main  # Trigger only on main branch
 
 jobs:
   zip-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📦 Checkout code
+    - name: 📦 Checkout repository
       uses: actions/checkout@v3
 
-    - name: 🐍 Setup Python
+    - name: 🐍 Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 🧪 Install dependencies and build zip
+    - name: 📁 Install dependencies and prepare build folder
       run: |
+        # Create Python package directory inside build/
         mkdir -p build/.python_packages/lib/site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
+        # Copy all function folders and core files
         cp requirements.txt host.json build/
-        cp -r IntradayAlert \
-              rss_listener \
-              nlp_processor \
-              finnhub_api \
-              mcp_score \
-              entry_target \
-              discord_poster \
-              logger \
-              db_writer \
-              keyvault_loader \
-              build/
+        cp -r \
+          IntradayAlert \
+          Watchlist \
+          OutcomeTracker \
+          EnvDebug \
+          rss_listener \
+          nlp_processor \
+          finnhub_api \
+          entry_target \
+          discord_poster \
+          db_writer \
+          tracker_debug \
+          watchlist_debug \
+          logger \
+          keyvault_loader \
+          build/
 
-        cd build && zip -r ../function.zip .
+    - name: ✅ Verify build structure before zipping
+      run: |
+        echo "Contents of build/:" && ls -lh build/
+        echo "---"
+        echo "IntradayAlert/ should contain function.json and __init__.py:"
+        ls -lh build/IntradayAlert/
+        echo "---"
+        echo "Root should contain host.json:"
+        cat build/host.json || echo "host.json missing"
+
+    - name: 📦 Create deployment package
+      run: |
+        cd build
+        zip -r ../function.zip .
 
     - name: 🚀 Deploy to Azure Function App
       uses: Azure/functions-action@v1
