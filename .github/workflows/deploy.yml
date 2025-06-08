@@ -38,4 +38,8 @@ jobs:
 
       - name: Publish Function App
         run: func azure functionapp publish quant-bot-app --python
+        working-directory: ./quant-trading-bot2
+      
+      - name: List Functions in Azure
+      run: func azure functionapp list-functions quant-bot-app
 
