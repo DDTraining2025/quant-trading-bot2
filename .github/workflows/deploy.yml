@@ -64,3 +64,4 @@ jobs:
         app-name: quant-bot-app
         package: function.zip
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+
