@@ -16,155 +16,151 @@ jobs:
       with:
         python-version: '3.10'
         
-    - name: 📁 Install dependencies and prepare build folder
+    - name: 📁 Prepare Azure Functions structure
       run: |
-        # Create build directory
+        # Create build directory with proper Azure Functions structure
         mkdir -p build
         
         # Copy essential files to build root
-        cp requirements.txt build/ || echo "requirements.txt not found"
-        cp host.json build/ || echo "host.json not found"
+        cp requirements.txt build/ 2>/dev/null || echo "requirements.txt not found"
+        cp host.json build/ 2>/dev/null || echo "host.json not found"
+        
+        # Copy any root-level Python files
+        find . -maxdepth 1 -name "*.py" -exec cp {} build/ \; 2>/dev/null || true
         
         # Copy all function directories explicitly
         for func_dir in IntradayAlert OutcomeTracker Watchlist rsslistener dbwriter logger keyvaultloader discordposter entrytarget finnhubapi mcpscore nlpprocessor; do
           if [ -d "$func_dir" ]; then
-            echo "Copying function directory: $func_dir"
+            echo "✅ Copying function directory: $func_dir"
             cp -r "$func_dir" build/
+            
+            # Ensure each function has __init__.py
+            if [ ! -f "build/$func_dir/__init__.py" ]; then
+              echo "# Azure Function" > "build/$func_dir/__init__.py"
+            fi
           else
-            echo "Warning: Function directory $func_dir not found"
+            echo "⚠️  Function directory not found: $func_dir"
           fi
         done
         
-        # Copy any Python modules/packages in root
-        for item in *.py; do
-          if [ -f "$item" ]; then
-            cp "$item" build/
-          fi
-        done
-        
-        # Install dependencies directly in build root (critical for Azure Functions)
-        cd build
-        if [ -f "requirements.txt" ]; then
-          pip install -r requirements.txt --target .
-        else
-          echo "ERROR: requirements.txt not found in build directory"
-          exit 1
-        fi
-        
-    - name: ✅ Validate Azure Functions structure
+    - name: 🔧 Install dependencies with proper Azure Functions method
       run: |
         cd build
         
-        echo "::group::Build directory contents"
-        ls -la
-        echo "::endgroup::"
+        # Create .python_packages directory for dependencies (Azure Functions specific)
+        mkdir -p .python_packages/lib/site-packages
         
-        echo "::group::Checking for host.json"
-        if [ ! -f "host.json" ]; then
-          echo "❌ ERROR: host.json not found in build root!"
-          echo "Current directory contents:"
-          ls -la
-          exit 1
+        # Install dependencies to the .python_packages directory
+        if [ -f "requirements.txt" ]; then
+          echo "📦 Installing dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --target .python_packages/lib/site-packages --implementation cp --python-version 3.10 --platform linux_x86_64 --only-binary=:all:
         else
-          echo "✅ host.json found"
-          echo "host.json contents:"
-          cat host.json
+          echo "❌ ERROR: requirements.txt not found"
+          exit 1
         fi
+        
+        # Also install directly to root for compatibility
+        pip install -r requirements.txt --target . --no-deps 2>/dev/null || true
+        
+    - name: ✅ Validate and clean Azure Functions structure
+      run: |
+        cd build
+        
+        echo "::group::Build directory structure"
+        find . -type f -name "*.json" -o -name "*.py" | head -20
         echo "::endgroup::"
         
-        echo "::group::Checking function directories and function.json files"
+        # Validate host.json
+        if [ ! -f "host.json" ]; then
+          echo "❌ ERROR: host.json missing"
+          exit 1
+        fi
+        
+        # Count valid functions
         function_count=0
         for func_dir in IntradayAlert OutcomeTracker Watchlist rsslistener dbwriter logger keyvaultloader discordposter entrytarget finnhubapi mcpscore nlpprocessor; do
-          if [ -d "$func_dir" ]; then
-            echo "📁 Directory exists: $func_dir"
-            if [ -f "$func_dir/function.json" ]; then
-              echo "  ✅ function.json found in $func_dir"
-              function_count=$((function_count + 1))
-              echo "  Contents of $func_dir/function.json:"
-              cat "$func_dir/function.json" | head -10
-            else
-              echo "  ❌ function.json NOT found in $func_dir"
-              echo "  Contents of $func_dir:"
-              ls -la "$func_dir" || echo "Cannot list directory contents"
-            fi
-          else
-            echo "❌ Directory NOT found: $func_dir"
+          if [ -d "$func_dir" ] && [ -f "$func_dir/function.json" ]; then
+            echo "✅ Valid function: $func_dir"
+            function_count=$((function_count + 1))
           fi
         done
         
         if [ $function_count -eq 0 ]; then
-          echo "❌ ERROR: No valid Azure Functions found!"
-          echo "Available directories:"
-          ls -la
+          echo "❌ ERROR: No valid functions found"
           exit 1
-        else
-          echo "✅ Found $function_count valid Azure Function(s)"
         fi
-        echo "::endgroup::"
         
-    - name: 🧹 Clean up problematic files
-      run: |
-        cd build
+        echo "✅ Found $function_count valid functions"
         
-        # Remove Python cache files
+        # Clean up problematic files
         find . -name "*.pyc" -delete
         find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        find . -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+        find . -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+        find . -name "tests" -type d -exec rm -rf {} + 2>/dev/null || true
         
-        # Remove development files
-        rm -rf .pytest_cache/ .coverage .env .vscode/ || true
-        
-        # Remove large unnecessary packages that might cause size issues
-        rm -rf */tests/ */test/ */docs/ */examples/ || true
-        
-        # List final structure
-        echo "::group::Final build structure"
-        find . -name "function.json" -exec echo "Function: {}" \;
-        echo "::endgroup::"
-        
-    - name: 📦 Create deployment package
+    - name: 📦 Create optimized deployment package
       run: |
         cd build
         
-        # Create zip file in parent directory
+        # Create zip with maximum compression
         zip -r ../function.zip . \
-          -x ".git/*" \
-          -x "__pycache__/*" \
+          -x "*.git*" \
+          -x "*__pycache__*" \
           -x "*.pyc" \
           -x "tests/*" \
           -x ".pytest_cache/*" \
           -x ".coverage" \
-          -x "*.log"
+          -x "*.log" \
+          -x "*.tmp"
           
-        # Check zip file size (Azure has limits)
         cd ..
-        zip_size=$(stat -f%z function.zip 2>/dev/null || stat -c%s function.zip)
-        echo "Zip file size: $((zip_size / 1024 / 1024)) MB"
         
-        if [ $zip_size -gt 1073741824 ]; then  # 1GB limit
-          echo "❌ ERROR: Zip file too large (>1GB)"
+        # Check file size
+        zip_size=$(stat -f%z function.zip 2>/dev/null || stat -c%s function.zip)
+        zip_size_mb=$((zip_size / 1024 / 1024))
+        echo "📊 Zip file size: ${zip_size_mb} MB"
+        
+        # Azure Functions has size limits
+        if [ $zip_size -gt 1073741824 ]; then  # 1GB
+          echo "❌ ERROR: Zip file exceeds 1GB limit"
           exit 1
         fi
         
-    - name: 🔍 Verify deployment package
+    - name: 🔍 Final deployment validation
       run: |
-        echo "::group::Zip contents verification"
-        unzip -l function.zip | head -30
+        echo "::group::Zip contents validation"
+        unzip -l function.zip | grep -E "(host\.json|function\.json|requirements\.txt)" || echo "Missing critical files"
         echo "::endgroup::"
         
-        # Verify critical files are in zip root
-        if unzip -l function.zip | grep -q "host.json"; then
-          echo "✅ host.json found in zip"
+        # Verify structure
+        if unzip -l function.zip | grep -q "host\.json"; then
+          echo "✅ host.json present"
         else
-          echo "❌ ERROR: host.json not found in zip root!"
+          echo "❌ host.json missing from zip"
           exit 1
         fi
         
-    - name: 🚀 Deploy to Azure Function App
+        function_json_count=$(unzip -l function.zip | grep -c "function\.json" || echo "0")
+        echo "✅ Found $function_json_count function.json files in zip"
+        
+        if [ "$function_json_count" -eq "0" ]; then
+          echo "❌ No function.json files found in zip"
+          exit 1
+        fi
+        
+    - name: 🚀 Deploy to Azure Function App  
       uses: Azure/functions-action@v1
       with:
         app-name: quant-bot-app
         package: function.zip
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-        # Critical settings for Python zip deployment
-        scm-do-build-during-deployment: false
-        enable-oryx-build: false
+        # Critical: Let Azure handle the build process
+        scm-do-build-during-deployment: true
+        enable-oryx-build: true
+        
+    - name: 🔄 Restart Function App (if deployment succeeds)
+      if: success()
+      run: |
+        echo "✅ Deployment successful! Function app will restart automatically."
