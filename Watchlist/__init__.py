@@ -3,10 +3,10 @@ import logging
 import datetime
 import azure.functions as func
 
-from rss_listener import fetch_rss_entries
-from discord_poster import send_discord_alert
+from rsslistener import fetch_rss_entries
+from discordposter import send_discord_alert
 from logger import log_alert
-from watchlist_utils import process_entry
+from watchlistutils import process_entry
 
 WATCHLIST_WEBHOOK = os.getenv("DISCORDWATCHLIST")
 
