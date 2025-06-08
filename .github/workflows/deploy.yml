@@ -26,32 +26,33 @@ jobs:
         cp requirements.txt host.json build/
         cp -r \
           IntradayAlert \
-          Watchlist \
           OutcomeTracker \
+          Watchlist \
           rss_listener \
-          nlp_processor \
-          finnhub_api \
-          entry_target \
-          discord_poster \
           db_writer \
           logger \
           keyvault_loader \
+          discord_poster \
+          entry_target \
+          finnhub_api \
+          mcp_score \
+          nlp_processor \
           build/
 
-    - name: 🔍 Show build folder contents
+    - name: 🧪 Verify build contents before zipping
       run: |
-        echo "::group::Build folder structure"
+        echo "::group::Build Folder Structure"
         tree build/
         echo "::endgroup::"
 
     - name: 📦 Create deployment package
       run: |
         cd build
-        zip -r ../function.zip * .[^.]*
+        zip -r ../function.zip . -x "*.git*" -x "*__pycache__*"
 
     - name: 🚀 Deploy to Azure Function App
       uses: Azure/functions-action@v1
       with:
-        app-name: quant-bot-app  # <-- update if different
+        app-name: quant-bot-app
         package: function.zip
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
