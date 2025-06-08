@@ -1,5 +1,4 @@
 name: 🚀 Zip Deploy Azure Python Function
-
 on:
   push:
     branches:
@@ -8,51 +7,126 @@ on:
 jobs:
   zip-deploy:
     runs-on: ubuntu-latest
-
     steps:
     - name: 📦 Checkout repository
-      uses: actions/checkout@v3
-
+      uses: actions/checkout@v4
+      
     - name: 🐍 Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-
+        
     - name: 📁 Install dependencies and prepare build folder
       run: |
-        mkdir -p build/.python_packages/lib/site-packages
-        pip install -r requirements.txt -t build/.python_packages/lib/site-packages
-
-        cp requirements.txt host.json build/
-        cp -r \
-          IntradayAlert \
-          OutcomeTracker \
-          Watchlist \
-          rss_listener \
-          db_writer \
-          logger \
-          keyvault_loader \
-          discord_poster \
-          entry_target \
-          finnhub_api \
-          mcp_score \
-          nlp_processor \
-          build/
-
-    - name: 🧪 Verify build contents before zipping
+        # Create build directory
+        mkdir -p build
+        
+        # Copy ALL project files first (including function.json files)
+        cp -r . build/
+        
+        # Clean up build directory
+        cd build
+        rm -rf .git .github .gitignore .pytest_cache tests/ *.md || true
+        
+        # Install dependencies directly in build root (critical for Azure Functions)
+        pip install -r requirements.txt --target .
+        
+    - name: ✅ Validate Azure Functions structure
       run: |
-        echo "::group::Build Folder Structure"
-        tree build/
+        cd build
+        
+        echo "::group::Checking for host.json"
+        if [ ! -f "host.json" ]; then
+          echo "❌ ERROR: host.json not found in build root!"
+          exit 1
+        else
+          echo "✅ host.json found"
+          cat host.json
+        fi
         echo "::endgroup::"
-
+        
+        echo "::group::Checking function directories"
+        function_count=0
+        for dir in */; do
+          if [ -f "${dir}function.json" ]; then
+            echo "✅ Function found: ${dir}"
+            function_count=$((function_count + 1))
+          fi
+        done
+        
+        if [ $function_count -eq 0 ]; then
+          echo "❌ ERROR: No function.json files found!"
+          echo "Available directories:"
+          ls -la
+          exit 1
+        else
+          echo "✅ Found $function_count function(s)"
+        fi
+        echo "::endgroup::"
+        
+    - name: 🧹 Clean up problematic files
+      run: |
+        cd build
+        
+        # Remove Python cache files
+        find . -name "*.pyc" -delete
+        find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        
+        # Remove development files
+        rm -rf .pytest_cache/ .coverage .env .vscode/ || true
+        
+        # Remove large unnecessary packages that might cause size issues
+        rm -rf */tests/ */test/ */docs/ */examples/ || true
+        
+        # List final structure
+        echo "::group::Final build structure"
+        find . -name "function.json" -exec echo "Function: {}" \;
+        echo "::endgroup::"
+        
     - name: 📦 Create deployment package
       run: |
         cd build
-        zip -r ../function.zip . -x "*.git*" -x "*__pycache__*"
-
+        
+        # Create zip file in parent directory
+        zip -r ../function.zip . \
+          -x ".git/*" \
+          -x "__pycache__/*" \
+          -x "*.pyc" \
+          -x "tests/*" \
+          -x ".pytest_cache/*" \
+          -x ".coverage" \
+          -x "*.log"
+          
+        # Check zip file size (Azure has limits)
+        cd ..
+        zip_size=$(stat -f%z function.zip 2>/dev/null || stat -c%s function.zip)
+        echo "Zip file size: $((zip_size / 1024 / 1024)) MB"
+        
+        if [ $zip_size -gt 1073741824 ]; then  # 1GB limit
+          echo "❌ ERROR: Zip file too large (>1GB)"
+          exit 1
+        fi
+        
+    - name: 🔍 Verify deployment package
+      run: |
+        echo "::group::Zip contents verification"
+        unzip -l function.zip | head -30
+        echo "::endgroup::"
+        
+        # Verify critical files are in zip root
+        if unzip -l function.zip | grep -q "host.json"; then
+          echo "✅ host.json found in zip"
+        else
+          echo "❌ ERROR: host.json not found in zip root!"
+          exit 1
+        fi
+        
     - name: 🚀 Deploy to Azure Function App
       uses: Azure/functions-action@v1
       with:
         app-name: quant-bot-app
         package: function.zip
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+        # Critical settings for Python zip deployment
+        scm-do-build-during-deployment: false
+        enable-oryx-build: false
