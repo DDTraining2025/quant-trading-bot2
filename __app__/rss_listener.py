@@ -1,8 +1,8 @@
 import os
-import logging
-import datetime
 import json
 import hashlib
+import logging
+import datetime
 import azure.functions as func
 
 from rsslistener import fetch_rss_entries
@@ -35,7 +35,7 @@ def save_seen_ids(seen):
 
 @bp.function_name(name="IntradayAlert")
 @bp.timer_trigger(schedule="0 */5 * * * *")  # every 5 minutes
-def main(timer: func.TimerRequest):
+def intraday_alert(timer: func.TimerRequest):
     now = datetime.datetime.utcnow()
     logging.info(f"📡 [Intraday] Triggered at {now.isoformat()}")
 
@@ -48,10 +48,7 @@ def main(timer: func.TimerRequest):
         for entry in entries:
             headline = entry.title
             link = entry.link
-            published = entry.published
             summary = entry.summary
-
-            logging.debug(f"🔎 Processing: {headline}")
 
             uid = hashlib.md5((headline + link).encode()).hexdigest()
             if uid in seen_ids:
@@ -82,12 +79,7 @@ def main(timer: func.TimerRequest):
             entry, stop, target = calculate_trade_plan(price)
 
             hour = now.hour
-            if hour < 9:
-                session = "Pre-Market"
-            elif hour < 16:
-                session = "Regular"
-            else:
-                session = "After-Hours"
+            session = "Pre-Market" if hour < 9 else "Regular" if hour < 16 else "After-Hours"
 
             message = format_alert(
                 ticker=ticker,
