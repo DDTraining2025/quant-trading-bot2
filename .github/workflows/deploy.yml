@@ -1,112 +1,35 @@
-name: 🚀 Zip Deploy Azure Python Function
+name: Deploy to Azure Functions
 
 on:
   push:
     branches:
-      - main
+      - main  # Change if needed
 
 jobs:
-  zip-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📦 Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: 📁 Prepare Azure Functions structure
-      run: |
-        mkdir -p build
-        cp requirements.txt host.json build/ 2>/dev/null || echo "requirements.txt or host.json not found"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-        # Copy root-level .py files
-        find . -maxdepth 1 -name "*.py" -exec cp {} build/ \; 2>/dev/null || true
+      - name: Set up Azure Functions Core Tools
+        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
-        # Safe copy of each expected function directory
-        for func_dir in IntradayAlert OutcomeTracker Watchlist rsslistener dbwriter logger keyvaultloader discordposter entrytarget finnhubapi mcpscore nlpprocessor; do
-          if [ -d "$func_dir" ]; then
-            echo "✅ Copying: $func_dir"
-            cp -r "$func_dir" build/ || echo "⚠️ Failed to copy $func_dir"
-            [ ! -f "build/$func_dir/__init__.py" ] && echo "# Azure Function" > "build/$func_dir/__init__.py"
-          else
-            echo "⚠️ Directory $func_dir not found — skipping"
-          fi
-        done
-        echo "✅ Finished copying all available function folders."
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: 🔧 Install dependencies into .python_packages
-      run: |
-        cd build
-        mkdir -p .python_packages/lib/site-packages
-        if [ -f "requirements.txt" ]; then
-          pip install -r requirements.txt --target .python_packages/lib/site-packages --upgrade --no-cache-dir
-        else
-          echo "❌ requirements.txt missing"
-          exit 1
-        fi
-
-    - name: ✅ Validate function structure
-      run: |
-        cd build
-        [ ! -f "host.json" ] && echo "❌ host.json missing" && exit 1
-
-        count=0
-        for d in */; do
-          if [ -f "$d/function.json" ]; then
-            echo "✅ Function folder: $d"
-            count=$((count+1))
-          fi
-        done
-
-        if [ "$count" -eq 0 ]; then
-          echo "❌ No functions found"
-          exit 1
-        fi
-        echo "✅ $count function.json files present"
-
-        # Cleanup
-        find . -name "*.pyc" -delete
-        find . -type d -name "__pycache__" -exec rm -rf {} +
-        rm -rf .pytest_cache/ .coverage .env .vscode/ || true
-
-    - name: 📦 Create deployment zip from inside build/
-      run: |
-        cd build
-        zip -r ../function.zip * .[^.]* || {
-          echo "❌ Failed to create zip"
-          exit 1
-        }
-
-    - name: 🔍 Validate zip contents
-      run: |
-        echo "::group::Zip Contents"
-        unzip -l function.zip | head -40
-        echo "::endgroup::"
-
-        unzip -l function.zip | grep -q "host.json" || {
-          echo "❌ host.json missing in zip root"
-          exit 1
-        }
-
-        count=$(unzip -l function.zip | grep -c "function.json")
-        [ "$count" -eq 0 ] && echo "❌ No function.json files in zip" && exit 1
-        echo "✅ $count function.json file(s) found"
-
-    - name: 💾 Upload zip for debugging
-      uses: actions/upload-artifact@v4
-      with:
-        name: function-zip-debug
-        path: function.zip
-
-    - name: 🚀 Deploy to Azure Function App
-      uses: Azure/functions-action@v1
-      with:
-        app-name: quant-bot-app
-        package: function.zip
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-        scm-do-build-during-deployment: true
-        enable-oryx-build: true
+      - name: Publish Function App
+        run: func azure functionapp publish quant-bot-app --python
