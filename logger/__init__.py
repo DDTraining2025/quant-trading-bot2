@@ -1,20 +1,35 @@
+from pathlib import Path
 import csv
-import os
 import datetime
 import logging
 import traceback
 
-LOG_FILE = "logs/mcp_log.csv"
-ERROR_LOG = "logs/error_log.txt"
-os.makedirs("logs", exist_ok=True)
+# Define log directory and files
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+CSV_LOG = LOG_DIR / "mcp_log.csv"
+ERROR_LOG_FILE = LOG_DIR / "error_log.txt"
 
-def load_today_alerts():
+# Configure standard logger for console and Azure Monitor
+logger = logging.getLogger("quantbot")
+logger.setLevel(logging.INFO)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
+
+def load_today_alerts() -> list[dict]:
+    """
+    Load alerts from today's CSV log labeled as 'intraday'.
+    """
     today = datetime.datetime.utcnow().date().isoformat()
     alerts = []
-    if not os.path.exists(LOG_FILE):
+    if not CSV_LOG.exists():
         return alerts
 
-    with open(LOG_FILE, newline="") as f:
+    with CSV_LOG.open(newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             if row.get("date") == today and row.get("type") == "intraday":
@@ -27,30 +42,53 @@ def load_today_alerts():
                         "session": row["session"],
                         "mcp_score": row.get("mcp_score")
                     })
-                except Exception as e:
-                    logging.warning(f"Skipping malformed row: {row}")
+                except Exception:
+                    logger.warning(f"Skipping malformed row: {row}")
     return alerts
 
-def log_outcome(result: dict):
-    fieldnames = [
-        "date", "ticker", "entry", "high", "close", "gain_pct", "result", "session"
-    ]
-    today = datetime.datetime.utcnow().date().isoformat()
-    result["date"] = today
+def log_outcome(result: dict) -> None:
+    """
+    Append a new outcome record to the CSV log.
+    """
+    fieldnames = ["date", "ticker", "entry", "high", "close", "gain_pct", "result", "session"]
+    record = result.copy()
+    record["date"] = datetime.datetime.utcnow().date().isoformat()
 
-    write_header = not os.path.exists(LOG_FILE)
-    with open(LOG_FILE, "a", newline="") as f:
+    write_header = not CSV_LOG.exists()
+    with CSV_LOG.open("a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         if write_header:
             writer.writeheader()
-        writer.writerow(result)
+        writer.writerow(record)
 
-def log_error(context: str, exception: Exception):
-    with open(ERROR_LOG, "a") as f:
-        f.write(f"\n[{datetime.datetime.utcnow().isoformat()}] {context}\n")
-        f.write(f"{traceback.format_exc()}\n")
+    logger.info(f"Logged outcome for {record['ticker']}: {record}")
 
-def format_log_data(ticker, price, volume, sentiment, sentiment_confidence, mcp_score, session, label):
+def log_error(context: str, exception: Exception) -> None:
+    """
+    Log an error context and stack trace to a file, while also emitting via standard logger.
+    """
+    ts = datetime.datetime.utcnow().isoformat()
+    trace = traceback.format_exc()
+
+    with ERROR_LOG_FILE.open("a") as f:
+        f.write(f"[{ts}] {context}\n")
+        f.write(trace + "\n")
+
+    logger.error(f"{context}: {exception}")
+
+def format_log_data(
+    ticker: str,
+    price: float,
+    volume: int,
+    sentiment: str,
+    sentiment_confidence: float,
+    mcp_score: float,
+    session: str,
+    label: str
+) -> dict:
+    """
+    Prepare a dict for CSV logging of alerts.
+    """
     return {
         "date": datetime.datetime.utcnow().date().isoformat(),
         "ticker": ticker,
