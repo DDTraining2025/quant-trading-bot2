@@ -53,8 +53,9 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Publish Function App
-        run: func azure functionapp publish QuantBot2025 --python
+      - name: Publish To Function App
+        run: func azure functionapp publish QuantBot2025 --python --script-root azfuncs
+
 
       - name: List deployed functions
         run: func azure functionapp list-functions QuantBot2025
