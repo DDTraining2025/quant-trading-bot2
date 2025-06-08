@@ -21,19 +21,22 @@ jobs:
     - name: 📁 Prepare Azure Functions structure
       run: |
         mkdir -p build
-        cp requirements.txt host.json build/ 2>/dev/null || echo "Not found"
+        cp requirements.txt host.json build/ 2>/dev/null || echo "requirements.txt or host.json not found"
 
-        # Copy Python files in root
+        # Copy root-level .py files
         find . -maxdepth 1 -name "*.py" -exec cp {} build/ \; 2>/dev/null || true
 
-        # Copy function directories
+        # Safe copy of each expected function directory
         for func_dir in IntradayAlert OutcomeTracker Watchlist rsslistener dbwriter logger keyvaultloader discordposter entrytarget finnhubapi mcpscore nlpprocessor; do
           if [ -d "$func_dir" ]; then
-            echo "Copying: $func_dir"
-            cp -r "$func_dir" build/
-            [ ! -f "build/$func_dir/__init__.py" ] && echo "# required" > "build/$func_dir/__init__.py"
+            echo "✅ Copying: $func_dir"
+            cp -r "$func_dir" build/ || echo "⚠️ Failed to copy $func_dir"
+            [ ! -f "build/$func_dir/__init__.py" ] && echo "# Azure Function" > "build/$func_dir/__init__.py"
+          else
+            echo "⚠️ Directory $func_dir not found — skipping"
           fi
         done
+        echo "✅ Finished copying all available function folders."
 
     - name: 🔧 Install dependencies into .python_packages
       run: |
@@ -42,11 +45,11 @@ jobs:
         if [ -f "requirements.txt" ]; then
           pip install -r requirements.txt --target .python_packages/lib/site-packages --upgrade --no-cache-dir
         else
-          echo "requirements.txt missing"
+          echo "❌ requirements.txt missing"
           exit 1
         fi
 
-    - name: ✅ Validate function layout
+    - name: ✅ Validate function structure
       run: |
         cd build
         [ ! -f "host.json" ] && echo "❌ host.json missing" && exit 1
@@ -54,7 +57,7 @@ jobs:
         count=0
         for d in */; do
           if [ -f "$d/function.json" ]; then
-            echo "✅ Function: $d"
+            echo "✅ Function folder: $d"
             count=$((count+1))
           fi
         done
@@ -63,10 +66,9 @@ jobs:
           echo "❌ No functions found"
           exit 1
         fi
+        echo "✅ $count function.json files present"
 
-    - name: 🧹 Clean up before zip
-      run: |
-        cd build
+        # Cleanup
         find . -name "*.pyc" -delete
         find . -type d -name "__pycache__" -exec rm -rf {} +
         rm -rf .pytest_cache/ .coverage .env .vscode/ || true
@@ -81,7 +83,7 @@ jobs:
 
     - name: 🔍 Validate zip contents
       run: |
-        echo "::group::Contents"
+        echo "::group::Zip Contents"
         unzip -l function.zip | head -40
         echo "::endgroup::"
 
@@ -91,8 +93,8 @@ jobs:
         }
 
         count=$(unzip -l function.zip | grep -c "function.json")
-        [ "$count" -eq 0 ] && echo "❌ No function.json in zip" && exit 1
-        echo "✅ Found $count function.json file(s)"
+        [ "$count" -eq 0 ] && echo "❌ No function.json files in zip" && exit 1
+        echo "✅ $count function.json file(s) found"
 
     - name: 💾 Upload zip for debugging
       uses: actions/upload-artifact@v4
