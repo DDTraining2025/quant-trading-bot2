@@ -5,14 +5,14 @@ import json
 import hashlib
 import azure.functions as func
 
-from rss_listener import fetch_rss_entries
-from nlp_processor import analyze_sentiment, tag_keywords
-from finnhub_api import get_quote, get_company_profile
-from mcp_score import calculate_mcp_score
-from entry_target import calculate_trade_plan
-from discord_poster import format_alert, send_discord_alert
+from rsslistener import fetch_rss_entries
+from nlpprocessor import analyze_sentiment, tag_keywords
+from finnhubapi import get_quote, get_company_profile
+from mcpscore import calculate_mcp_score
+from entrytarget import calculate_trade_plan
+from discordposter import format_alert, send_discord_alert
 from logger import log_alert as log_to_csv, format_log_data
-from db_writer import log_alert as log_to_db
+from dbwriter import log_alert as log_to_db
 
 # RSS sources to poll
 FEEDS = [
