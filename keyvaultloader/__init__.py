@@ -18,15 +18,10 @@ def load_secrets_from_vault():
         client = SecretClient(vault_url=vault_url, credential=credential)
 
         required_secrets = [
-            "pghost",
-            "pguser",
-            "pgpassword",
-            "pgdatabase",
-            "finnhub",
-            "discordwebhooknews",
-            "discordwatchlist",
-            "discordreview"
+            "pghost", "pgdatabase", "pguser", "pgpassword",
+            "finnhub", "discordwebhooknews", "discordwatchlist", "discordreview"
         ]
+
 
         for secret_name in required_secrets:
             try:
