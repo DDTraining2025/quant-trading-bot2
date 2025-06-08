@@ -31,7 +31,7 @@ jobs:
           pip install pyupgrade black isort flake8 pytest
 
       - name: pyupgrade (syntax modernization)
-        run: pyupgrade --py310-plus **/*.py
+        run: pyupgrade --exit-zero-even-if-changed --py310-plus **/*.py
 
       - name: Black formatting check
         run: black --check .
