@@ -11,6 +11,9 @@ from logger import bp as logger_bp
 from mcpscore import bp as mcpscore_bp
 from nlpprocessor import bp as nlpproc_bp
 from rsslistener import bp as rsslistener_bp
+from azfuncs.intraday_alert import bp as intraday_bp
+from azfuncs.outcome_tracker import bp as outcome_bp
+from azfuncs.rss_listener import bp as rss_bp
 
 app = func.FunctionApp()
 
