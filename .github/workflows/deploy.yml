@@ -165,6 +165,12 @@ jobs:
           exit 1
         fi
         
+    - name: 💾 Upload deployment zip as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: function-zip-debug
+        path: function.zip
+
     - name: 🚀 Deploy to Azure Function App  
       uses: Azure/functions-action@v1
       with:
