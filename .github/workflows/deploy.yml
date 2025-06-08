@@ -1,27 +1,9 @@
-# GitHub Actions Workflow for Deploying Azure Python Function App via Zip
-#
-# This workflow automates the build and deployment of an Azure Function App
-# using a zip package. It includes the following steps:
-#
-# 1. Trigger on push to `main` branch.
-# 2. Set up Python environment.
-# 3. Install dependencies into a zip-compatible directory.
-# 4. Copy function code, including debug/manual triggers.
-# 5. Zip the build directory.
-# 6. Deploy the zip to Azure using a publish profile.
-#
-# 📍 To update this workflow:
-# - Modify the folder list under the "cp -r" line if new functions are added.
-# - Ensure all function folders are included.
-# - Update the Python version if needed.
-# - Use secrets to securely manage Azure credentials.
-
 name: Zip Deploy Azure Python Function
 
 on:
   push:
     branches:
-      - main  # Adjust if you use a different deployment branch
+      - main
 
 jobs:
   zip-deploy:
@@ -38,17 +20,22 @@ jobs:
 
     - name: 🧪 Install dependencies and build zip
       run: |
-        # Create base folder for packages
         mkdir -p build/.python_packages/lib/site-packages
         pip install -r requirements.txt -t build/.python_packages/lib/site-packages
 
-        # Copy project and function files
         cp requirements.txt host.json build/
-        cp -r IntradayAlert Watchlist OutcomeTracker EnvDebug \
-              rss_listener nlp_processor entry_target logger \
-              watchlist_debug tracker_debug build/
+        cp -r IntradayAlert \
+              rss_listener \
+              nlp_processor \
+              finnhub_api \
+              mcp_score \
+              entry_target \
+              discord_poster \
+              logger \
+              db_writer \
+              keyvault_loader \
+              build/
 
-        # Create deployable zip bundle
         cd build && zip -r ../function.zip .
 
     - name: 🚀 Deploy to Azure Function App
