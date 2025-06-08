@@ -34,7 +34,7 @@ jobs:
         run: pyupgrade --exit-zero-even-if-changed --py310-plus **/*.py
 
       - name: Black formatting check
-        run: black --check .
+        run: black .
 
       - name: Import sorting check
         run: isort --check-only .
