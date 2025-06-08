@@ -1,7 +1,7 @@
 import os
 import psycopg2
 from logger import log_error, log_info
-from keyvault_loader import load_secrets
+from keyvaultloader import load_secrets
 
 # Load secrets from Azure Key Vault
 load_secrets(["PG_HOST", "PG_DATABASE", "PG_USER", "PG_PASSWORD"])
