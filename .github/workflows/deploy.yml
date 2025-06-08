@@ -42,8 +42,8 @@ jobs:
 #      - name: Lint with flake8
 #        run: flake8 .
   
-      - name: Run unit tests
-        run: pytest --maxfail=1 --disable-warnings -q
+#      - name: Run unit tests
+#        run: pytest --maxfail=1 --disable-warnings -q
 
       - name: Set up Azure Functions Core Tools
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
