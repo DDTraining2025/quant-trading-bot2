@@ -60,3 +60,4 @@ jobs:
       - name: List deployed functions
         run: func azure functionapp list-functions QuantBot2025
 
+
