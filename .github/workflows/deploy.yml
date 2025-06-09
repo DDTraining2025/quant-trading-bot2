@@ -45,7 +45,7 @@ jobs:
 #     - name: 🧪 Run unit tests
 #       run: pytest --maxfail=1 --disable-warnings -q
 
-      - name: 📦 Prepare deployment package
+      - name: 📦 Prepare ZIP package
         run: |
           mkdir -p build
           cp function_app.py __init__.py host.json requirements.txt build/
@@ -58,3 +58,6 @@ jobs:
           app-name: QuantBot2025
           package: functionapp.zip
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+
+      - name: ✅ List deployed functions
+        run: func azure functionapp list-functions QuantBot2025
