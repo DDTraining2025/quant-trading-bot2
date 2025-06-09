@@ -2,42 +2,42 @@ name: Deploy to Azure Functions
 
 on:
   push:
-    branches:
-      - main  # Change if needed
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 📦 Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: 🔧 Set up Node.js (for func CLI)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-      - name: Set up Azure Functions Core Tools
+      - name: 🛠 Install Azure Functions Core Tools
         run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
 
-      - name: Azure Login
+      - name: 🔐 Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          
-      - name: List directory structure
+
+      - name: 📁 Show project structure (debug)
         run: |
           pwd
           ls -R .
 
-      - name: Publish Function App
-        run: func azure functionapp publish QuantBot2025 --python
+      - name: 🚀 Deploy to Azure Function App
+        run: func azure functionapp publish QuantBot2025 --python --build-native-deps
 
-      - name: List Functions in Azure
+      - name: 📋 List Azure Functions
         run: func azure functionapp list-functions QuantBot2025
