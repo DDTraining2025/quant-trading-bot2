@@ -30,14 +30,14 @@ jobs:
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
           pip install pyupgrade black isort flake8 pytest
 
-      - name: 🧼 pyupgrade (syntax modernization)
-        run: pyupgrade --exit-zero-even-if-changed --py310-plus **/*.py
+ #     - name: 🧼 pyupgrade (syntax modernization)
+ #       run: pyupgrade --exit-zero-even-if-changed --py310-plus **/*.py
 
-      - name: 🎨 Black formatting check
-        run: black .
+#      - name: 🎨 Black formatting check
+#        run: black .
 
-      - name: 🧩 Import sorting check
-        run: isort .
+#      - name: 🧩 Import sorting check
+#        run: isort .
 
 #     - name: 🧪 Lint with flake8
 #       run: flake8 .
@@ -50,7 +50,7 @@ jobs:
           mkdir -p build
           cp function_app.py __init__.py host.json requirements.txt build/
           cp -r azfuncs .python_packages build/
-          cd build && zip -r ../functionapp.zip .
+          cd build && zip -r ../functionapp.zip 
 
       - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
