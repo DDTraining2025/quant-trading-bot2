@@ -37,6 +37,12 @@ jobs:
           cp -r .python_packages build/
           cd build && zip -r ../functionapp.zip .
 
+      - name: ⬆️ Upload functionapp.zip for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: functionapp
+          path: functionapp.zip
+
       - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
         with:
