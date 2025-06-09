@@ -29,21 +29,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
 
-      - name: 🛠 Rename entry point
-        run: mv function_app.py __init__.py
-
-      - name: 🗂️ Create build folder and copy source
+      - name: 📂 Create build folder and copy files
         run: |
           mkdir build
-          cp __init__.py host.json requirements.txt build/
+          cp host.json requirements.txt build/
+          cp function_app.py build/__init__.py  # Rename main entry point
+          cp -r azfuncs build/
+          cp -r .python_packages build/
 
-
-      - name: 📦 Create functionapp.zip
+      - name: 📦 Create deployment ZIP
         run: |
           cd build
           zip -r ../functionapp.zip .
 
-      - name: ⬆️ Upload artifact (debug only)
+      - name: ⬆️ Upload ZIP artifact (for debugging)
         uses: actions/upload-artifact@v4
         with:
           name: functionapp
