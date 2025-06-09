@@ -28,36 +28,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-          pip install pyupgrade black isort flake8 pytest
-
- #     - name: 🧼 pyupgrade (syntax modernization)
- #       run: pyupgrade --exit-zero-even-if-changed --py310-plus **/*.py
-
-#      - name: 🎨 Black formatting check
-#        run: black .
-
-#      - name: 🧩 Import sorting check
-#        run: isort .
-
-#     - name: 🧪 Lint with flake8
-#       run: flake8 .
-
-#     - name: 🧪 Run unit tests
-#       run: pytest --maxfail=1 --disable-warnings -q
 
       - name: 📦 Prepare ZIP package
         run: |
-          mkdir -p build
-          cp function_app.py __init__.py host.json requirements.txt build/
-          cp -r azfuncs .python_packages build/
-          ls -R build  # ✅ Show what's inside before zipping
-          cd build && zip -r ../functionapp.zip .
-
-      - name: ⬆️ Upload functionapp.zip for inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: functionapp
-          path: functionapp.zip
+          mkdir -p build/QuantBot2025
+          cp function_app.py __init__.py host.json requirements.txt build/QuantBot2025/
+          cp -r azfuncs .python_packages build/QuantBot2025/
+          cd build && zip -r ../functionapp.zip QuantBot2025
 
       - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
