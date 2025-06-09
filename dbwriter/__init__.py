@@ -1,48 +1,58 @@
+# dbwriter.py
 import os
+import logging
 import psycopg2
-from logger import log_error, log_info
-from keyvaultloader import load_secrets
+from psycopg2.extras import execute_values
+from datetime import datetime
 
-# Load secrets from Azure Key Vault
-load_secrets(["PG_HOST", "PG_DATABASE", "PG_USER", "PG_PASSWORD"])
+# --- Load DB credentials from environment (use Key Vault or local.settings.json) ---
+PG_HOST = os.environ.get("pg_host")
+PG_PORT = os.environ.get("pg_port", 5432)
+PG_NAME = os.environ.get("pg_dbname", "quantbotdb")
+PG_USER = os.environ.get("pg_user")
+PG_PASS = os.environ.get("pg_password")
 
-def connect_pg():
-    return psycopg2.connect(
-        host=os.getenv("PG_HOST"),
-        dbname=os.getenv("PG_DATABASE"),
-        user=os.getenv("PG_USER"),
-        password=os.getenv("PG_PASSWORD"),
-        sslmode="require"
-    )
-
-def log_alert(ticker: str, score: float, entry: float, stop: float, target: float, pr_title: str):
+def log_alert(alert: dict):
+    """
+    Write a single PR alert to the PostgreSQL alerts table.
+    Expects keys: ticker, headline, url, timestamp, market_cap, source, sentiment, mcp_score
+    """
+    conn = None
     try:
-        conn = connect_pg()
+        conn = psycopg2.connect(
+            host=PG_HOST,
+            port=PG_PORT,
+            dbname=PG_NAME,
+            user=PG_USER,
+            password=PG_PASS
+        )
         cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO alerts (ticker, score, entry, stop, target, pr_title, alert_time)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW())
-        """, (ticker.upper(), score, entry, stop, target, pr_title.strip()))
+
+        sql = """
+        INSERT INTO alerts (
+            ticker, headline, url, published_time,
+            market_cap, source, sentiment, mcp_score
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        cur.execute(sql, (
+            alert.get("ticker"),
+            alert.get("headline"),
+            alert.get("url"),
+            alert.get("timestamp"),
+            alert.get("market_cap"),
+            alert.get("source"),
+            alert.get("sentiment", None),
+            alert.get("mcp_score", None)
+        ))
+
         conn.commit()
         cur.close()
-        conn.close()
-        log_info(f"✅ Alert logged for {ticker}")
+        logging.info(f"[DB] ✅ Logged alert for {alert['ticker']}")
+
     except Exception as e:
-        log_error(f"❌ Failed to log alert for {ticker}", e)
-
-# Optional CLI test
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mock", type=str, help="Mock ticker")
-    args = parser.parse_args()
-
-    if args.mock:
-        log_alert(
-            ticker=args.mock,
-            score=8.5,
-            entry=1.25,
-            stop=1.00,
-            target=2.00,
-            pr_title="FDA Approval for Major Drug"
-        )
+        logging.error(f"[DB] ❌ Error writing to database: {e}")
+    finally:
+        if conn:
+            conn.close()
