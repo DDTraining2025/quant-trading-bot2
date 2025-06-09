@@ -29,11 +29,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
 
+      - name: 🛠 Rename entry point
+        run: mv function_app.py __init__.py
+
       - name: 🗂️ Create build folder and copy source
         run: |
           mkdir build
           cp function_app.py host.json requirements.txt build/
-          cp __init__.py build/ 2>/dev/null || true
           cp -r azfuncs build/
           cp -r .python_packages build/
 
