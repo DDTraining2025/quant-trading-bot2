@@ -24,20 +24,21 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
 
-      - name: 🧪 Install dependencies
+      - name: 🧪 Install dependencies into .python_packages
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-          
-      - name: 📦 Prepare ZIP package
+          pip install -r requirements.txt --target=.python_packages/lib/site-packages
+
+      - name: 📦 Build zip package
         run: |
-          mkdir -p build
-          cp function_app.py __init__.py host.json requirements.txt build/
+          mkdir build
+          cp function_app.py host.json requirements.txt __init__.py build/
           cp -r azfuncs build/
           cp -r .python_packages build/
-          cd build && zip -r ../functionapp.zip .
+          cd build
+          zip -r ../functionapp.zip .
 
-      - name: ⬆️ Upload functionapp.zip for inspection
+      - name: ⬆️ Upload ZIP artifact (optional debugging)
         uses: actions/upload-artifact@v4
         with:
           name: functionapp
