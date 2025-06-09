@@ -1,61 +1,64 @@
-# intraday_alert.py
+import os
 import logging
-from finnhubnews import fetch_general_news
-from finnhubapi import get_company_profile
+from finn import get_news_items, get_market_cap
+from discordposter import send_discord_alert
 from dbwriter import log_alert
-from discordposter import send_discord_alert, send_no_news_message
 
 def run_intraday_alert():
-    logging.info("[INTRADAY] 🔁 Fetching recent PRs from Finnhub...")
-    news_items = fetch_general_news(minutes=5)
+    logging.info("[ALERT] 🚨 Starting intraday alert workflow")
 
-    if not news_items:
-        logging.info("[INTRADAY] No new PRs or API limit reached.")
-        send_no_news_message("No news items returned by API or outside PR window.")
+    # Load API key from environment
+    finnhub_key = os.environ.get("finnhub")
+    if not finnhub_key:
+        logging.error("[ALERT] ❌ Missing 'finnhub' API key in environment")
         return
 
-    count_valid = 0
+    logging.info("[ALERT] 🔑 Loaded Finnhub API key")
 
-    for item in news_items:
-        headline = item.get("title", "").strip()
-        url = item.get("url", "").strip()
-        published_time = item.get("published_utc")
-        source = item.get("source", "")
-        ticker_field = item.get("ticker", "").strip()
+    # Step 1: Get news items
+    try:
+        news_items = get_news_items(finnhub_key)
+        logging.info(f"[ALERT] 📰 Retrieved {len(news_items)} news items from Finnhub")
+    except Exception as e:
+        logging.error(f"[ALERT] ❌ Failed to fetch news: {e}")
+        return
 
-        # Basic sanity checks
-        if not ticker_field or not headline or not url:
-            logging.warning(f"[SKIP] Incomplete PR: ticker={ticker_field}, headline={headline}")
+    if not news_items:
+        logging.info("[ALERT] ⚠️ No news found in this cycle")
+        return
+
+    # Step 2: Filter microcaps and alert
+    count_posted = 0
+    for news in news_items:
+        symbol = news.get("symbol")
+        if not symbol:
+            logging.warning("[ALERT] ❌ News item missing 'symbol': skipping")
             continue
 
-        # Handle multi-ticker case (e.g. "ABC,XYZ")
-        ticker = ticker_field.split(",")[0].strip().upper()
-
         try:
-            profile = get_company_profile(ticker)
-            market_cap = profile.get("marketCapitalization")
+            market_cap = get_market_cap(symbol, finnhub_key)
+            logging.info(f"[ALERT] 💰 {symbol} market cap = ${market_cap:,.2f}")
+        except Exception as e:
+            logging.warning(f"[ALERT] ❌ Couldn't fetch market cap for {symbol}: {e}")
+            continue
 
-            if not market_cap or market_cap > 50:
-                logging.info(f"[FILTER] Skipping {ticker} – Market Cap: {market_cap}")
-                continue
+        if market_cap > 50_000_000:
+            logging.info(f"[ALERT] ⛔ Skipping {symbol} (market cap too high)")
+            continue
 
-            # ✅ PASSED FILTERS
-            count_valid += 1
-            logging.info(f"[ALERT] {ticker} – ${market_cap:.1f}M – {headline}")
+        # Step 3: Send Discord alert
+        try:
+            send_discord_alert(news)
+            count_posted += 1
+            logging.info(f"[ALERT] ✅ Sent alert for {symbol}")
+        except Exception as e:
+            logging.error(f"[ALERT] ❌ Failed to send Discord alert for {symbol}: {e}")
 
-            # 🧾 Log to DB
-            log_alert({
-                "ticker": ticker,
-                "headline": headline,
-                "url": url,
-                "timestamp": published_time,
-                "market_cap": market_cap,
-                "source": source,
-                "sentiment": "N/A",
-                "mcp_score": None
-            })
+        # Step 4: Log to DB
+        try:
+            log_alert(news)
+            logging.info(f"[ALERT] 🗃️ Logged alert for {symbol} to DB")
+        except Exception as e:
+            logging.warning(f"[ALERT] ⚠️ DB logging failed for {symbol}: {e}")
 
-            # 📢 Send Discord Alert
-            send_discord_alert({
-                "ticker": ticker,
-                "headline": headline,
+    logging.info(f"[ALERT] ✅ Done. Sent {count_posted} alert(s) this cycle.")
