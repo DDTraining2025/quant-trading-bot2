@@ -48,7 +48,7 @@ jobs:
       - name: 📦 Prepare deployment package
         run: |
           mkdir -p build
-          cp function_app.py host.json requirements.txt build/
+          cp function_app.py __init__.py host.json requirements.txt build/
           cp -r azfuncs .python_packages build/
           cd build && zip -r ../functionapp.zip .
 
@@ -58,6 +58,3 @@ jobs:
           app-name: QuantBot2025
           package: functionapp.zip
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-
-      - name: ✅ List deployed functions
-        run: func azure functionapp list-functions QuantBot2025
