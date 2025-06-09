@@ -50,7 +50,8 @@ jobs:
           mkdir -p build
           cp function_app.py __init__.py host.json requirements.txt build/
           cp -r azfuncs .python_packages build/
-          cd build && zip -r ../functionapp.zip 
+          cd build && zip -r ../functionapp.zip .
+
 
       - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
