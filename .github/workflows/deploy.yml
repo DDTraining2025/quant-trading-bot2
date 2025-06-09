@@ -35,9 +35,8 @@ jobs:
       - name: 🗂️ Create build folder and copy source
         run: |
           mkdir build
-          cp function_app.py host.json requirements.txt build/
-          cp -r azfuncs build/
-          cp -r .python_packages build/
+          cp __init__.py host.json requirements.txt build/
+
 
       - name: 📦 Create functionapp.zip
         run: |
