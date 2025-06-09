@@ -10,6 +10,7 @@ load_secrets_from_vault()
 from azfuncs.intraday_alert import bp as intraday_bp
 from azfuncs.rss_listener    import bp as rss_bp
 from azfuncs.outcome_tracker import bp as outcome_bp
+from azfuncs.hello_timer      import bp as hello_bp
 
 # 3) wire them into a single FunctionApp
 logging.basicConfig(level=logging.INFO)
@@ -23,3 +24,5 @@ logging.info("🔌 Registered RSSListener blueprint")
 
 app.register_functions(outcome_bp)
 logging.info("🔌 Registered OutcomeTracker blueprint")
+
+app.register_functions(hello_bp)
