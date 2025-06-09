@@ -58,6 +58,3 @@ jobs:
           app-name: QuantBot2025
           package: functionapp.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-
-      - name: ✅ List deployed functions
-        run: func azure functionapp list-functions QuantBot2025
