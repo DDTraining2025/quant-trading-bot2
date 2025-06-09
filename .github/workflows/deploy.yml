@@ -28,13 +28,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-
+          
       - name: 📦 Prepare ZIP package
         run: |
-          mkdir -p build/QuantBot2025
-          cp function_app.py __init__.py host.json requirements.txt build/QuantBot2025/
-          cp -r azfuncs .python_packages build/QuantBot2025/
-          cd build && zip -r ../functionapp.zip QuantBot2025
+          mkdir -p build
+          cp function_app.py __init__.py host.json requirements.txt build/
+          cp -r azfuncs build/
+          cp -r .python_packages build/
+          cd build && zip -r ../functionapp.zip .
 
       - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
