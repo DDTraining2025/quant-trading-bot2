@@ -1,22 +1,20 @@
-def send_no_news_message(reason="No qualifying PRs found."):
-    """
-    Posts a heartbeat message to Discord if no alerts were sent.
-    """
-    if not DISCORD_WEBHOOK_URL:
-        logging.error("[DISCORD] ❌ Webhook URL not set for no-news message.")
-        return
+import logging
+import os
+import requests
+
+def send_discord_alert(news: dict):
+    webhook_url = os.environ.get("discordwebhooknews")
+    if not webhook_url:
+        raise ValueError("Missing 'discordwebhooknews' in environment")
+
+    content = f"📰 **{news.get('symbol')}** – {news.get('headline')}\n<{news.get('url')}>"
+    payload = {"content": content}
 
     try:
-        payload = {
-            "content": f"⚠️ No PR alerts sent.\n📄 Reason: {reason}"
-        }
-
-        response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
-
+        response = requests.post(webhook_url, json=payload)
         if response.status_code == 204:
-            logging.info("[DISCORD] ✅ No-news message sent")
+            logging.info(f"[DISCORD] ✅ Sent alert for {news.get('symbol')}")
         else:
-            logging.warning(f"[DISCORD] ⚠️ No-news message failed: {response.status_code} - {response.text}")
-
+            logging.warning(f"[DISCORD] ⚠️ Status {response.status_code}: {response.text}")
     except Exception as e:
-        logging.error(f"[DISCORD] ❌ Error sending no-news message: {e}")
+        logging.error(f"[DISCORD] ❌ Error sending alert: {e}")
