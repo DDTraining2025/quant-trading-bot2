@@ -1,58 +1,70 @@
-# dbwriter.py
-import os
+# intraday_alert.py
 import logging
-import psycopg2
-from psycopg2.extras import execute_values
-from datetime import datetime
+from finnhubnews import fetch_general_news
+from finnhubapi import get_company_profile
+from dbwriter import log_alert
+from discordposter import send_discord_alert
 
-# --- Load DB credentials from environment (use Key Vault or local.settings.json) ---
-PG_HOST = os.environ.get("pg_host")
-PG_PORT = os.environ.get("pg_port", 5432)
-PG_NAME = os.environ.get("pg_dbname", "quantbotdb")
-PG_USER = os.environ.get("pg_user")
-PG_PASS = os.environ.get("pg_password")
+def run_intraday_alert():
+    logging.info("[INTRADAY] 🔁 Fetching recent PRs from Finnhub...")
+    news_items = fetch_general_news(minutes=5)
 
-def log_alert(alert: dict):
-    """
-    Write a single PR alert to the PostgreSQL alerts table.
-    Expects keys: ticker, headline, url, timestamp, market_cap, source, sentiment, mcp_score
-    """
-    conn = None
-    try:
-        conn = psycopg2.connect(
-            host=PG_HOST,
-            port=PG_PORT,
-            dbname=PG_NAME,
-            user=PG_USER,
-            password=PG_PASS
-        )
-        cur = conn.cursor()
+    if not news_items:
+        logging.info("[INTRADAY] No new PRs or API limit reached.")
+        return
 
-        sql = """
-        INSERT INTO alerts (
-            ticker, headline, url, published_time,
-            market_cap, source, sentiment, mcp_score
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
+    count_valid = 0
 
-        cur.execute(sql, (
-            alert.get("ticker"),
-            alert.get("headline"),
-            alert.get("url"),
-            alert.get("timestamp"),
-            alert.get("market_cap"),
-            alert.get("source"),
-            alert.get("sentiment", None),
-            alert.get("mcp_score", None)
-        ))
+    for item in news_items:
+        headline = item.get("title", "").strip()
+        url = item.get("url", "").strip()
+        published_time = item.get("published_utc")
+        source = item.get("source", "")
+        ticker_field = item.get("ticker", "").strip()
 
-        conn.commit()
-        cur.close()
-        logging.info(f"[DB] ✅ Logged alert for {alert['ticker']}")
+        # Basic sanity checks
+        if not ticker_field or not headline or not url:
+            logging.warning(f"[SKIP] Incomplete PR: ticker={ticker_field}, headline={headline}")
+            continue
 
-    except Exception as e:
-        logging.error(f"[DB] ❌ Error writing to database: {e}")
-    finally:
-        if conn:
-            conn.close()
+        # Handle multi-ticker cases (e.g. "ABC,XYZ")
+        ticker = ticker_field.split(",")[0].strip().upper()
+
+        try:
+            profile = get_company_profile(ticker)
+            market_cap = profile.get("marketCapitalization")
+
+            if not market_cap or market_cap > 50:
+                logging.info(f"[FILTER] Skipping {ticker} – Market Cap: {market_cap}")
+                continue
+
+            # ✅ Passed all filters
+            count_valid += 1
+            logging.info(f"[ALERT] {ticker} – ${market_cap:.1f}M – {headline}")
+
+            # Log to DB
+            log_alert({
+                "ticker": ticker,
+                "headline": headline,
+                "url": url,
+                "timestamp": published_time,
+                "market_cap": market_cap,
+                "source": source,
+                "sentiment": "N/A",   # Placeholder
+                "mcp_score": None     # Placeholder
+            })
+
+            # Send Discord Alert
+            send_discord_alert({
+                "ticker": ticker,
+                "headline": headline,
+                "market_cap": market_cap,
+                "url": url,
+                "timestamp": published_time
+            })
+
+        except Exception as e:
+            logging.error(f"[ERROR] Failed to process PR for {ticker}: {e}")
+
+    if count_valid == 0:
+        logging.info("[INTRADAY] No valid microcap PRs found this run.")
