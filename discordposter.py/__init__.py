@@ -1,44 +1,22 @@
-import os
-import requests
-from logger import log_error
+def send_no_news_message(reason="No qualifying PRs found."):
+    """
+    Posts a heartbeat message to Discord if no alerts were sent.
+    """
+    if not DISCORD_WEBHOOK_URL:
+        logging.error("[DISCORD] ❌ Webhook URL not set for no-news message.")
+        return
 
-def send_discord_alert(webhook_env: str, content: str, embed: dict = None):
-    """
-    Sends a message to the configured Discord webhook.
-    """
     try:
-        url = os.getenv(webhook_env)
-        if not url:
-            raise ValueError(f"Missing webhook URL in env: {webhook_env}")
+        payload = {
+            "content": f"⚠️ No PR alerts sent.\n📄 Reason: {reason}"
+        }
 
-        payload = {"content": content}
-        if embed:
-            payload["embeds"] = [embed]
+        response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
 
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
+        if response.status_code == 204:
+            logging.info("[DISCORD] ✅ No-news message sent")
+        else:
+            logging.warning(f"[DISCORD] ⚠️ No-news message failed: {response.status_code} - {response.text}")
+
     except Exception as e:
-        log_error(f"Failed to send Discord alert via {webhook_env}", e)
-
-def format_alert(
-    ticker: str,
-    headline: str,
-    price: float,
-    volume: int,
-    target: float,
-    stop: float,
-    score: float,
-    sentiment: str,
-    session: str,
-    pr_url: str
-) -> str:
-    """
-    Formats a structured alert message for Discord.
-    """
-    return (
-        f"🚨 **${ticker} ALERT** ({session})\n"
-        f"> **Headline**: {headline}\n"
-        f"> **Price**: ${price:.2f} | **Target**: ${target:.2f} | **Stop**: ${stop:.2f}\n"
-        f"> **Volume**: {volume:,} | **MCP Score**: {score} | **Sentiment**: {sentiment}\n"
-        f"> [🔗 Read PR]({pr_url})"
-    )
+        logging.error(f"[DISCORD] ❌ Error sending no-news message: {e}")
