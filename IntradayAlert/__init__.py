@@ -12,6 +12,15 @@ def main(mytimer: func.TimerRequest) -> None:
     try:
         prs = fetch_recent_prs()
         logging.info(f"✅ PR fetch returned {len(prs)} items")
+
+            # 🔧 Insert simulated PR for testing
+        prs.append({
+            "ticker": "TEST",
+            "headline": "Simulated FDA Approval",
+            "url": "https://example.com/fda-test",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
+        
     except Exception as e:
         logging.error(f"❌ PR fetch error: {e}")
         return
