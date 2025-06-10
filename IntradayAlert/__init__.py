@@ -1,18 +1,26 @@
 import logging
 import azure.functions as func
 
-from shared.finnhubapi import fetch_recent_prs, get_market_cap
-from shared.discordposter import send_discord_alert
-from shared.dbwriter import log_alert
+logging.basicConfig(level=logging.INFO)
+logging.info("🔁 Starting IntradayAlert function")
+
+try:
+    from shared.finnhubapi import fetch_recent_prs, get_market_cap
+    from shared.discordposter import send_discord_alert
+    from shared.dbwriter import log_alert
+    logging.info("✅ Imports successful")
+except Exception as e:
+    logging.error(f"❌ Import failure: {e}")
+    raise
 
 def main(mytimer: func.TimerRequest) -> None:
-    logging.basicConfig(level=logging.INFO)
-    logging.info("🔁 Intraday alert triggered.")
+    logging.info("🔁 Intraday alert triggered")
 
     try:
         prs = fetch_recent_prs()
+        logging.info(f"✅ PR fetch returned {len(prs)} items")
     except Exception as e:
-        logging.error(f"❌ Error fetching PRs: {e}")
+        logging.error(f"❌ PR fetch error: {e}")
         return
 
     for pr in prs:
@@ -28,6 +36,5 @@ def main(mytimer: func.TimerRequest) -> None:
 
             send_discord_alert(ticker, title, url)
             log_alert(ticker, title, url, ts, market_cap)
-
         except Exception as e:
             logging.error(f"❌ Error processing PR: {pr}\n{e}")
