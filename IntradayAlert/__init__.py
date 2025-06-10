@@ -13,6 +13,9 @@ def main(mytimer: func.TimerRequest) -> None:
     try:
         prs = fetch_recent_prs()
         logging.info(f"✅ PR fetch returned {len(prs)} items")
+    except Exception as e:
+        logging.error(f"❌ PR fetch error: {e}")
+        return
 
         # 🔧 Insert simulated PR for testing
         prs.append({
@@ -22,10 +25,7 @@ def main(mytimer: func.TimerRequest) -> None:
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
 
-    except Exception as e:
-        logging.error(f"❌ PR fetch error: {e}")
-        return
-
+    
     for pr in prs:
         try:
             ticker = pr["ticker"]
@@ -34,9 +34,6 @@ def main(mytimer: func.TimerRequest) -> None:
             ts = pr["timestamp"]
 
             market_cap = get_market_cap(ticker) or 0
-        #    if not market_cap or market_cap > 50_000_000:
-          #      market_cap = 45_000_000  # 💡 
-                continue
 
             send_discord_alert(ticker, title, url)
             log_alert(ticker, title, url, ts, market_cap)
