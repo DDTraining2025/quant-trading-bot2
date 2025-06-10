@@ -1,88 +1,44 @@
+import os
 import logging
-import datetime  # ✅ Required for simulated timestamp
 import azure.functions as func
 
 from shared.finnhubapi import fetch_recent_prs, get_market_cap
 from shared.discordposter import send_discord_alert
-from shared.dbwriter import log_alert
+from shared.dbwriter import already_logged, log_alert
 
 def main(mytimer: func.TimerRequest) -> None:
-    logging.basicConfig(level=logging.INFO)
     logging.info("🔁 Intraday alert triggered")
 
-    try:
-        prs = fetch_recent_prs()
-        logging.info(f"✅ PR list now has {len(prs)} item(s)")
-    except Exception as e:
-        logging.error(f"❌ PR fetch error: {e}")
-        return
+    # 1) Fetch PRs from Finnhub (last 5 minutes)
+    prs = fetch_recent_prs(window_minutes=5)
+    logging.info(f"✅ PR list now has {len(prs)} item(s)")
 
     for pr in prs:
+        ticker   = pr["ticker"]
+        title    = pr["headline"]
+        url      = pr["url"]
+        ts       = pr["timestamp"]
+        market_cap = get_market_cap(ticker)
+
+        # 2) Skip duplicates in DB
+        if already_logged(ticker, title, ts):
+            logging.info(f"⏭ Skipping duplicate for {ticker} @ {ts}")
+            continue
+
+        # 3) Dispatch to Discord
         try:
-            ticker = pr["ticker"]
-            title = pr["headline"]
-            url = pr["url"]
-            ts = pr["timestamp"]
-
-            # ⏸️ Market cap filter disabled for now
-            market_cap = get_market_cap(ticker) or 0
-            logging.info(f"🔎 Market cap for {ticker}: ${market_cap:,}")
-
-            logging.info(f"📤 Dispatching Discord alert for {ticker} - {title}")
             send_discord_alert(ticker, title, url)
             logging.info(f"✅ Discord alert sent for {ticker}")
-
-            logging.info(f"📝 Logging alert to DB: {ticker}")
-            log_alert(ticker, title, url, ts, market_cap)
-
         except Exception as e:
-            logging.error(f"❌ Error processing PR: {pr}\n{e}")
-import logging
-import datetime  # ✅ Required for simulated timestamp
-import azure.functions as func
+            logging.error(f"❌ Failed to send Discord alert for {ticker}: {e}")
+            # decide whether to continue or break
+            continue
 
-from shared.finnhubapi import fetch_recent_prs, get_market_cap
-from shared.discordposter import send_discord_alert
-from shared.dbwriter import log_alert
-
-def main(mytimer: func.TimerRequest) -> None:
-    logging.basicConfig(level=logging.INFO)
-    logging.info("🔁 Intraday alert triggered")
-
-    try:
-        prs = fetch_recent_prs()
-
-        # 🔧 Insert simulated PR for testing
-        simulated_pr = {
-            "ticker": "TEST",
-            "headline": "Simulated FDA Approval",
-            "url": "https://example.com/fda-test",
-            "timestamp": datetime.datetime.utcnow().isoformat()
-        }
-        prs.append(simulated_pr)
-
-        logging.info(f"✅ PR list now has {len(prs)} item(s)")
-    except Exception as e:
-        logging.error(f"❌ PR fetch error: {e}")
-        return
-
-    for pr in prs:
+        # 4) Log to PostgreSQL
         try:
-            ticker = pr["ticker"]
-            title = pr["headline"]
-            url = pr["url"]
-            ts = pr["timestamp"]
-
-            # ⏸️ Market cap filter disabled for now
-            market_cap = get_market_cap(ticker) or 0
-            logging.info(f"🔎 Market cap for {ticker}: ${market_cap:,}")
-
-            logging.info(f"📤 Dispatching Discord alert for {ticker} - {title}")
-            send_discord_alert(ticker, title, url)
-            logging.info(f"✅ Discord alert sent for {ticker}")
-
-            logging.info(f"📝 Logging alert to DB: {ticker}")
             log_alert(ticker, title, url, ts, market_cap)
+        except Exception:
+            logging.error(f"❌ Error logging alert for {ticker}")
+            # if you want to retry, you could re-raise here
 
-        except Exception as e:
-            logging.error(f"❌ Error processing PR: {pr}\n{e}")
+    logging.info("✅ IntradayAlert run complete")
