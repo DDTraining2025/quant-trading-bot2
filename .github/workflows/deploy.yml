@@ -1,43 +1,67 @@
-name: Deploy to Azure Functions
+name: 🚀 Deploy to Azure Functions with Logging
 
 on:
   push:
     branches:
-      - main  # Change if needed
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: 🐍 Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+    - name: 📜 Log Python Version
+      run: |
+        echo "🐍 Python version: $(python --version)"
+        which python
 
-      - name: Set up Azure Functions Core Tools
-        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+    - name: 📦 Install Python Dependencies to .python_packages
+      run: |
+        echo "📦 Installing requirements to .python_packages..."
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        echo "📂 Installed packages:"
+        ls -l .python_packages/lib/site-packages
+      continue-on-error: false
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-          
-      - name: List directory structure
-        run: |
-          pwd
-          ls -R .
+    - name: 📂 Show Directory Structure Before Zipping
+      run: |
+        echo "📁 Project structure before packaging:"
+        tree -a -I '__pycache__'
 
-      - name: Publish Function App
-        run: func azure functionapp publish QuantBot2025 --python
+    - name: 🗂️ Create Deployment ZIP
+      run: |
+        echo "📦 Creating ZIP package..."
+        mkdir -p build
+        cp -r IntradayAlert shared host.json requirements.txt .python_packages build/
+        cd build && zip -r ../function.zip .
+        echo "🧾 Contents of deployment ZIP:"
+        unzip -l ../function.zip
 
-      - name: List Functions in Azure
-        run: func azure functionapp list-functions QuantBot2025
+    - name: 🔐 Validate Azure Function App Info
+      run: |
+        echo "🔐 Deploying to Azure Function App: QuantBot2025"
+        echo "✅ Publish Profile loaded: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE != '' }}"
+
+    - name: 🚀 Deploy ZIP using Publish Profile
+      uses: Azure/functions-action@v1
+      with:
+        app-name: QuantBot2025
+        package: function.zip
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+
+    - name: 📋 Final Directory State
+      run: |
+        echo "📦 Final repo state:"
+        ls -l
+        du -sh ./* || true
+
+    - name: ✅ Deployment Complete
+      run: echo "🎉 QuantBot MVP successfully deployed to Azure!"
