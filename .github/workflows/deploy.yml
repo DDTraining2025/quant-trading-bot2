@@ -1,4 +1,4 @@
-name: 🚀 Deploy to Azure Functions (Windows-Friendly)
+name: 🚀 Deploy QuantBot MVP to Azure Functions (Verbose)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: windows-latest  # 👈 Ensures PowerShell-compatible environment
+    runs-on: windows-latest
 
     steps:
       - name: 📥 Checkout Code
@@ -18,37 +18,56 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 🐍 Log Python Version
+      - name: 🔍 Log Python & Pip Info
         shell: pwsh
         run: |
+          Write-Host "🔍 Python Info:"
           python --version
           Get-Command python
+          Write-Host "📦 Pip Info:"
+          pip --version
+          pip list
 
-      - name: 📦 Install dependencies to .python_packages
+      - name: 📦 Install Dependencies to .python_packages
         shell: pwsh
         run: |
-          Write-Host "Installing requirements to .python_packages..."
+          Write-Host "📦 Installing requirements into .python_packages/lib/site-packages..."
           pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          Write-Host "✅ Installed dependencies:"
           Get-ChildItem -Path ".python_packages/lib/site-packages"
 
-      - name: 🗂️ Create ZIP Package
+      - name: 📁 Show File Tree Before ZIP
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path build -Force
-          Copy-Item -Recurse -Path IntradayAlert,shared,host.json,requirements.txt,.python_packages -Destination build
+          Write-Host "📁 Project file structure before packaging:"
+          Get-ChildItem -Recurse | ForEach-Object {
+            "$($_.FullName)".Replace("$PWD\\", "")
+          }
+
+      - name: 🗂️ Create ZIP Package for Deployment
+        shell: pwsh
+        run: |
+          Write-Host "🛠️ Creating ZIP from: IntradayAlert, shared, host.json, requirements.txt, .python_packages"
+          mkdir build -Force
+          Copy-Item -Recurse -Force IntradayAlert,shared,host.json,requirements.txt,.python_packages build
           Compress-Archive -Path build\* -DestinationPath function.zip
-          Write-Host "Deployment ZIP Contents:"
+          Write-Host "✅ ZIP file created: function.zip"
+          Write-Host "📄 Contents of ZIP archive:"
           Expand-Archive -Path function.zip -DestinationPath preview -Force
           Get-ChildItem -Recurse -Path preview
 
-      - name: 🚀 Deploy using Publish Profile
+      - name: 🚀 Deploy to Azure Function App
         uses: Azure/functions-action@v1
         with:
           app-name: QuantBot2025
           package: function.zip
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
 
-      - name: ✅ Deployment Complete
+      - name: ✅ Confirm Deployment & Clean Up
         shell: pwsh
         run: |
-          Write-Host "✅ QuantBot MVP deployed successfully!"
+          Write-Host "🎉 Deployment completed to: QuantBot2025"
+          Write-Host "📦 Final workspace state:"
+          Get-ChildItem -Recurse | ForEach-Object {
+            "$($_.FullName)".Replace("$PWD\\", "")
+          }
