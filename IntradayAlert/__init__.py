@@ -35,6 +35,7 @@ def main(mytimer: func.TimerRequest) -> None:
 
             market_cap = get_market_cap(ticker)
             if not market_cap or market_cap > 50_000_000:
+                market_cap = 45_000_000  # 💡 
                 continue
 
             send_discord_alert(ticker, title, url)
