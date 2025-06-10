@@ -1,7 +1,0 @@
-feedparser
-requests
-azure-functions
-pytz
-azure-identity
-azure-keyvault-secrets
-psycopg2-binary
