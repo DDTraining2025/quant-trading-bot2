@@ -1,4 +1,4 @@
-name: 🚀 Deploy to Azure Functions with Logging
+name: 🚀 Deploy to Azure Functions (Windows-Friendly)
 
 on:
   push:
@@ -7,61 +7,48 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # 👈 Ensures PowerShell-compatible environment
 
     steps:
-    - name: 📥 Checkout Code
-      uses: actions/checkout@v4
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
 
-    - name: 🐍 Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: 🐍 Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: 📜 Log Python Version
-      run: |
-        echo "🐍 Python version: $(python --version)"
-        which python
+      - name: 🐍 Log Python Version
+        shell: pwsh
+        run: |
+          python --version
+          Get-Command python
 
-    - name: 📦 Install Python Dependencies to .python_packages
-      run: |
-        echo "📦 Installing requirements to .python_packages..."
-        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-        echo "📂 Installed packages:"
-        ls -l .python_packages/lib/site-packages
-      continue-on-error: false
+      - name: 📦 Install dependencies to .python_packages
+        shell: pwsh
+        run: |
+          Write-Host "Installing requirements to .python_packages..."
+          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          Get-ChildItem -Path ".python_packages/lib/site-packages"
 
-    - name: 📂 Show Directory Structure Before Zipping
-      run: |
-        echo "📁 Project structure before packaging:"
-        tree -a -I '__pycache__'
+      - name: 🗂️ Create ZIP Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path build -Force
+          Copy-Item -Recurse -Path IntradayAlert,shared,host.json,requirements.txt,.python_packages -Destination build
+          Compress-Archive -Path build\* -DestinationPath function.zip
+          Write-Host "Deployment ZIP Contents:"
+          Expand-Archive -Path function.zip -DestinationPath preview -Force
+          Get-ChildItem -Recurse -Path preview
 
-    - name: 🗂️ Create Deployment ZIP
-      run: |
-        echo "📦 Creating ZIP package..."
-        mkdir -p build
-        cp -r IntradayAlert shared host.json requirements.txt .python_packages build/
-        cd build && zip -r ../function.zip .
-        echo "🧾 Contents of deployment ZIP:"
-        unzip -l ../function.zip
+      - name: 🚀 Deploy using Publish Profile
+        uses: Azure/functions-action@v1
+        with:
+          app-name: QuantBot2025
+          package: function.zip
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
 
-    - name: 🔐 Validate Azure Function App Info
-      run: |
-        echo "🔐 Deploying to Azure Function App: QuantBot2025"
-        echo "✅ Publish Profile loaded: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE != '' }}"
-
-    - name: 🚀 Deploy ZIP using Publish Profile
-      uses: Azure/functions-action@v1
-      with:
-        app-name: QuantBot2025
-        package: function.zip
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-
-    - name: 📋 Final Directory State
-      run: |
-        echo "📦 Final repo state:"
-        ls -l
-        du -sh ./* || true
-
-    - name: ✅ Deployment Complete
-      run: echo "🎉 QuantBot MVP successfully deployed to Azure!"
+      - name: ✅ Deployment Complete
+        shell: pwsh
+        run: |
+          Write-Host "✅ QuantBot MVP deployed successfully!"
