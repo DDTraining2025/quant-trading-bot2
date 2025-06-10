@@ -1,10 +1,22 @@
 import os
+import logging
 import requests
 
-WEBHOOK = os.getenv("discordwebhooknews")
+# ✅ Load webhook securely from environment
+WEBHOOK = os.getenv("DISCORDWEBHOOKNEWS")
 
-def send_discord_alert(ticker, title, url):
+def send_discord_alert(ticker, headline, url):
+    if not WEBHOOK:
+        logging.error("❌ DISCORDWEBHOOKNEWS is not set. Cannot send Discord alert.")
+        return
+
     payload = {
-        "content": f"📰 **{ticker}** - {title}\n<{url}>"
+        "content": f"📢 **{ticker}**: {headline}\n🔗 {url}"
     }
-    requests.post(WEBHOOK, json=payload)
+
+    try:
+        response = requests.post(WEBHOOK, json=payload)
+        response.raise_for_status()
+        logging.info(f"✅ Alert sent for {ticker}")
+    except Exception as e:
+        logging.error(f"❌ Failed to send Discord alert: {e}")
