@@ -34,8 +34,11 @@ def main(mytimer: func.TimerRequest) -> None:
             seen_ids.add(news_id)
 
             for ticker in tickers or ["???"]:
-                send_discord_alert(ticker, headline, url)
+                alert = dict(item)
+                alert["ticker"] = ticker
+                send_discord_alert(alert)
                 log_alert(news_id, ticker, headline, url, published_utc)
+
 
         logging.info(f"✅ Processed {len(news)} Benzinga news articles")
     except Exception as ex:
