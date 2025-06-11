@@ -1,44 +1,63 @@
 import os
 import logging
-import azure.functions as func
+from datetime import datetime, timedelta
+from benzinga import BenzingaClient
 
-from shared.finnhubapi import fetch_recent_prs, get_market_cap
-from shared.discordposter import send_discord_alert
-from shared.dbwriter import already_logged, log_alert
+# Benzinga API key from environment
+API_KEY = os.getenv("Bezinga")
 
-def main(mytimer: func.TimerRequest) -> None:
-    logging.info("🔁 Intraday alert triggered")
 
-    # 1) Fetch PRs from Finnhub (last 5 minutes)
-    prs = fetch_recent_prs(window_minutes=1)
-    logging.info(f"✅ PR list now has {len(prs)} item(s)")
+def fetch_recent_prs(window_minutes=5, seen_ids=None):
+    """
+    Fetch press releases via Benzinga Python client within the past window_minutes.
+    Filters out items whose 'id' is in seen_ids to avoid duplicates.
+    Returns a list of dicts: {id, ticker, headline, url}.
 
-    for pr in prs:
-        ticker   = pr["ticker"]
-        title    = pr["headline"]
-        url      = pr["url"]
-        ts       = pr["timestamp"]
-        market_cap = get_market_cap(ticker)
+    Args:
+        window_minutes (int): lookback window in minutes
+        seen_ids (set): optional set of Benzinga news IDs to exclude
+    """
+    client = BenzingaClient(API_KEY)
+    now = datetime.utcnow()
+    since = now - timedelta(minutes=window_minutes)
+    since_ts = int(since.timestamp())
+    seen = seen_ids or set()
 
-        # 2) Skip duplicates in DB
-        if already_logged(ticker, title, ts):
-            logging.info(f"⏭ Skipping duplicate for {ticker} @ {ts}")
+    try:
+        items = client.news.get_news(
+            updated_since=since_ts,
+            content_types=["Press Release"],
+            page_size=100
+        )
+        logging.info(f"Fetched {len(items)} items from Benzinga")
+    except Exception as e:
+        logging.error(f"Error fetching news from Benzinga: {e}")
+        return []
+
+    recent_prs = []
+    for item in items:
+        news_id = item.get("id")
+        if not news_id or news_id in seen:
             continue
 
-        # 3) Dispatch to Discord
+        pub_str = item.get("created")  # e.g. '2025-06-11T11:45:00Z'
         try:
-            send_discord_alert(ticker, title, url)
-            logging.info(f"✅ Discord alert sent for {ticker}")
-        except Exception as e:
-            logging.error(f"❌ Failed to send Discord alert for {ticker}: {e}")
-            # decide whether to continue or break
-            continue
-
-        # 4) Log to PostgreSQL
-        try:
-            log_alert(ticker, title, url, ts, market_cap)
+            pub_dt = datetime.strptime(pub_str, "%Y-%m-%dT%H:%M:%SZ")
         except Exception:
-            logging.error(f"❌ Error logging alert for {ticker}")
-            # if you want to retry, you could re-raise here
+            continue
 
-    logging.info("✅ IntradayAlert run complete")
+        if since <= pub_dt <= now:
+            ticker = item.get("ticker")
+            headline = item.get("title")
+            url = item.get("url")
+            if ticker and headline and url:
+                recent_prs.append({
+                    "id": news_id,
+                    "ticker": ticker,
+                    "headline": headline,
+                    "url": url
+                })
+                seen.add(news_id)
+
+    logging.info(f"Returning {len(recent_prs)} new PRs, filtered duplicates")
+    return recent_prs
