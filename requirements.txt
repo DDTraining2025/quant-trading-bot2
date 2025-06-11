@@ -1,4 +1,4 @@
 azure-functions
 requests
 pg8000
-benzinga-client>=1.0.0
+benzinga
