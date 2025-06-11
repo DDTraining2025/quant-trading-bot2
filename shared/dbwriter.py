@@ -2,27 +2,28 @@ import os
 import pg8000
 import logging
 
-def log_alert(ticker, headline, url, published, news_id, source):
+def log_alert(news_id, ticker, headline, url, published_utc):
+    """Write a news alert to the PostgreSQL database."""
+    conn = None
     try:
         conn = pg8000.connect(
-            host=os.getenv("PGHOST"),
-            database=os.getenv("PGDATABASE"),
             user=os.getenv("PGUSER"),
             password=os.getenv("PGPASSWORD"),
-            port=int(os.getenv("PGPORT", 5432)),
-            ssl_context=None,  # Use this or pass ssl if needed
+            host=os.getenv("PGHOST"),
+            port=int(os.getenv("PGPORT", "5432")),
+            database=os.getenv("PGDATABASE"),
+            ssl_context=True,
         )
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO alerts (ticker, headline, url, published, news_id, source, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW())
-            """,
-            (ticker, headline, url, published, news_id, source),
-        )
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO alerts (news_id, ticker, headline, url, published_utc)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (news_id) DO NOTHING
+        """, (news_id, ticker, headline, url, published_utc))
         conn.commit()
-        cursor.close()
-        conn.close()
-        logging.info(f"Logged alert for {ticker} to Postgres.")
+        cur.close()
     except Exception as e:
-        logging.error(f"DB log failed: {e}")
+        logging.error(f"[DB] Error logging alert: {e}")
+    finally:
+        if conn:
+            conn.close()
