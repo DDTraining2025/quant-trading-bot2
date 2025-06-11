@@ -1,5 +1,6 @@
 import azure.functions as func
 import logging
+import datetime
 from shared.benzingaapi import fetch_recent_news
 from shared.dbwriter import log_alert
 from shared.discordposter import send_discord_alert
