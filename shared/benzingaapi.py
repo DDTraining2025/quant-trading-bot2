@@ -35,11 +35,14 @@ def fetch_recent_news(published_since):
             title = item.findtext("title")
             url = item.findtext("url") or item.findtext("url1")
             created = item.findtext("created") or item.findtext("updated")
+            stocks = item.findtext("stocks")
+            tickers = [t.strip().upper() for t in stocks.split(",")] if stocks else []
             news_items.append({
                 "id": news_id,
                 "title": title,
                 "url": url,
-                "created": created
+                "created": created,
+                "stocks": tickers
             })
         return news_items
 
