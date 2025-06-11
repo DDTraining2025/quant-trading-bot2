@@ -8,8 +8,16 @@ def send_discord_alert(news):
         logging.error("Discord webhook not set!")
         return
 
+    tickers = news.get('stocks', [])
+    ticker_str = ', '.join(tickers) if tickers else 'N/A'
+
     message = {
-        "content": f"**{news.get('title','[No title]')}**\n{news.get('url','')}\nPublished: {news.get('created','')}"
+        "content": (
+            f"**{news.get('title', '[No title]')}**\n"
+            f"{news.get('url', '')}\n"
+            f"Published: {news.get('created', '')}\n"
+            f"Tickers: {ticker_str}"
+        )
     }
     try:
         resp = requests.post(webhook_url, json=message, timeout=10)
