@@ -1,63 +1,82 @@
 import os
 import logging
-from datetime import datetime, timedelta
-from benzinga import BenzingaClient
+import datetime
+import azure.functions as func
 
-# Benzinga API key from environment
-API_KEY = os.getenv("Bezinga")
+from shared.dbwriter import log_alert
+from shared.discordposter import send_discord_alert
 
+import requests
 
-def fetch_recent_prs(window_minutes=5, seen_ids=None):
-    """
-    Fetch press releases via Benzinga Python client within the past window_minutes.
-    Filters out items whose 'id' is in seen_ids to avoid duplicates.
-    Returns a list of dicts: {id, ticker, headline, url}.
+BENZINGA_API_KEY = os.getenv("BEZINGA")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+DEDUP_FILE = "/tmp/seen_benzinga_ids.txt"
 
-    Args:
-        window_minutes (int): lookback window in minutes
-        seen_ids (set): optional set of Benzinga news IDs to exclude
-    """
-    client = BenzingaClient(API_KEY)
-    now = datetime.utcnow()
-    since = now - timedelta(minutes=window_minutes)
-    since_ts = int(since.timestamp())
-    seen = seen_ids or set()
+def load_seen_ids():
+    if not os.path.exists(DEDUP_FILE):
+        return set()
+    with open(DEDUP_FILE, "r") as f:
+        return set(line.strip() for line in f if line.strip())
 
+def save_seen_ids(ids):
+    with open(DEDUP_FILE, "w") as f:
+        for id in ids:
+            f.write(f"{id}\n")
+
+def fetch_benzinga_news():
+    # Docs: https://docs.benzinga.com/python-client#returns-news
+    url = "https://api.benzinga.com/api/v2/news"
+    params = {
+        "token": BENZINGA_API_KEY,
+        "pagesize": 20,  # Adjust as needed
+        "date": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+        "channels": "wires,pressReleases"
+    }
     try:
-        items = client.news.get_news(
-            updated_since=since_ts,
-            content_types=["Press Release"],
-            page_size=100
-        )
-        logging.info(f"Fetched {len(items)} items from Benzinga")
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        return resp.json().get("articles", [])
     except Exception as e:
-        logging.error(f"Error fetching news from Benzinga: {e}")
+        logging.error(f"[Benzinga] Failed to fetch news: {e}")
         return []
 
-    recent_prs = []
-    for item in items:
-        news_id = item.get("id")
-        if not news_id or news_id in seen:
-            continue
+def main(mytimer: func.TimerRequest) -> None:
+    utc_now = datetime.datetime.utcnow()
+    logging.info(f"🔁 Intraday alert triggered at {utc_now.isoformat()}")
 
-        pub_str = item.get("created")  # e.g. '2025-06-11T11:45:00Z'
+    seen_ids = load_seen_ids()
+    news_items = fetch_benzinga_news()
+    new_ids = set(seen_ids)
+
+    for item in news_items:
+        news_id = str(item.get("id"))
+        published = item.get("created", "")[:19]  # ISO format
+        headline = item.get("title", "")
+        url = item.get("url", "")
+        tickers = item.get("stocks", [])
+        source = item.get("source", "benzinga")
+
+        # Only process news from last 5 minutes
         try:
-            pub_dt = datetime.strptime(pub_str, "%Y-%m-%dT%H:%M:%SZ")
+            pub_dt = datetime.datetime.strptime(published, "%Y-%m-%dT%H:%M:%S")
         except Exception:
             continue
 
-        if since <= pub_dt <= now:
-            ticker = item.get("ticker")
-            headline = item.get("title")
-            url = item.get("url")
-            if ticker and headline and url:
-                recent_prs.append({
-                    "id": news_id,
-                    "ticker": ticker,
-                    "headline": headline,
-                    "url": url
-                })
-                seen.add(news_id)
+        if (utc_now - pub_dt).total_seconds() > 300:
+            continue
 
-    logging.info(f"Returning {len(recent_prs)} new PRs, filtered duplicates")
-    return recent_prs
+        if news_id in seen_ids:
+            continue  # Deduplicate
+
+        # For each ticker, send alert and log
+        for ticker in tickers:
+            ticker = ticker.upper().strip()
+            send_discord_alert(ticker, headline, url)
+            log_alert(ticker, headline, url, published, news_id, source)
+            logging.info(f"✅ Alert sent & logged for {ticker}: {headline}")
+
+        new_ids.add(news_id)
+
+    save_seen_ids(new_ids)
+    logging.info(f"📝 Finished processing Benzinga news batch.")
+
