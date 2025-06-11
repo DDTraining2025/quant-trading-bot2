@@ -15,6 +15,7 @@ def fetch_recent_news(window_minutes=5):
         "published_since": since
         # Add more filters if you like: categories, tickers, etc.
     }
+    headers = {"Accept": "application/json"}
     url = "https://api.benzinga.com/api/v2/news"
     response = requests.get(url, params=params, timeout=10)
     response.raise_for_status()
