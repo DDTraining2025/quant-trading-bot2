@@ -10,7 +10,7 @@ def main(mytimer: func.TimerRequest) -> None:
     logging.info("🔁 Intraday alert triggered")
 
     # 1) Fetch PRs from Finnhub (last 5 minutes)
-    prs = fetch_recent_prs(window_minutes=5)
+    prs = fetch_recent_prs(window_minutes=1)
     logging.info(f"✅ PR list now has {len(prs)} item(s)")
 
     for pr in prs:
