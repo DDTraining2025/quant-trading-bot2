@@ -1,29 +1,22 @@
-import requests
 import os
-import logging
+import requests
+from datetime import datetime, timedelta, timezone
 
-def fetch_benzinga_news(published_since):
-    api_key = os.getenv("BEZINGA")
-    if not api_key or api_key.startswith("https://"):
-        logging.error("🔥 BEZINGA API KEY not loaded correctly! Value: %s", repr(api_key))
-        raise ValueError("BEZINGA API KEY not set or is still a Key Vault URI.")
+def fetch_recent_news(window_minutes=5):
+    """Fetch Benzinga news within the last `window_minutes`."""
+    api_key = os.getenv("BEZINGA")  # Make sure this is set as an environment variable!
+    if not api_key:
+        raise RuntimeError("BEZINGA API key not found in environment variables.")
 
-    url = "https://api.benzinga.com/api/v2/news"
+    since = (datetime.utcnow() - timedelta(minutes=window_minutes)).replace(tzinfo=timezone.utc).isoformat()
     params = {
         "token": api_key,
         "display_output": "full",
-        "published_since": published_since
+        "published_since": since
+        # Add more filters if you like: categories, tickers, etc.
     }
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        logging.info("Benzinga API status %s, response: %s...", response.status_code, response.text[:200])
-        if response.status_code != 200:
-            raise Exception(f"Benzinga API Error: HTTP {response.status_code} - {response.text}")
-
-        if not response.text.strip():
-            logging.warning("Benzinga API returned empty body!")
-            return []
-        return response.json()
-    except Exception as e:
-        logging.exception("Error fetching/parsing Benzinga news")
-        return []
+    url = "https://api.benzinga.com/api/v2/news"
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    news = response.json()
+    return news.get("articles", [])
