@@ -1,5 +1,7 @@
 import os
 import requests
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def send_discord_alert(ticker, headline, url):
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
