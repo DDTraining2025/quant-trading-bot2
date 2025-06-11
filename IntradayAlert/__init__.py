@@ -8,11 +8,18 @@ def main(mytimer: func.TimerRequest) -> None:
     logging.info("🔁 Intraday alert triggered")
 
     try: 
+        # Calculate 'published_since' (5 minutes ago)
         utc_now = datetime.datetime.utcnow()
         published_since = (utc_now - datetime.timedelta(minutes=5)).strftime('%Y-%m-%dT%H:%M:%S')
+        
         news = fetch_recent_news(published_since)
         seen_ids = set()
-
+        
+        if not news:
+            logging.info("No Benzinga news found in the last 5 minutes.")
+            send_discord_alert("NONE", "No news in the last 5 minutes.", "")
+            return
+            
         for item in news:
             news_id = str(item.get("id"))
             headline = item.get("title", "")
