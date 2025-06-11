@@ -2,21 +2,38 @@ import os
 import logging
 import requests
 
-# ✅ Load webhook securely from environment
-WEBHOOK = os.getenv("DISCORDWEBHOOKNEWS")
+# Discord webhook URL from environment
+WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
-def send_discord_alert(ticker, headline, url):
-    if not WEBHOOK:
-        logging.error("❌ DISCORDWEBHOOKNEWS is not set. Cannot send Discord alert.")
-        return
 
-    payload = {
-        "content": f"📢 **{ticker}**: {headline}\n🔗 {url}"
+def send_discord_alert(news_id, ticker, headline, url, timestamp=None):
+    """
+    Send a structured alert to Discord with Benzinga news details.
+
+    Args:
+        news_id (int): Benzinga news identifier
+        ticker (str): Stock symbol
+        headline (str): PR headline
+        url (str): Link to full PR
+        timestamp (str): Optional ISO timestamp string for footer
+    """
+    embed = {
+        "title": f"{ticker} ▶️ New PR #{news_id}",
+        "description": headline,
+        "url": url,
+        "color": 5814783,
     }
 
+    # Include timestamp in footer if provided
+    if timestamp:
+        embed["footer"] = {"text": f"Published: {timestamp}"}
+
+    payload = {"embeds": [embed]}
+
     try:
-        response = requests.post(WEBHOOK, json=payload)
-        response.raise_for_status()
-        logging.info(f"✅ Alert sent for {ticker}")
+        resp = requests.post(WEBHOOK_URL, json=payload)
+        resp.raise_for_status()
+        logging.info(f"Discord alert sent for {ticker} (ID: {news_id})")
     except Exception as e:
-        logging.error(f"❌ Failed to send Discord alert: {e}")
+        logging.error(f"Error sending Discord alert for {ticker} (ID: {news_id}): {e}")
+        raise
