@@ -7,8 +7,10 @@ from shared.discordposter import send_discord_alert
 def main(mytimer: func.TimerRequest) -> None:
     logging.info("🔁 Intraday alert triggered")
 
-    try:
-        news = fetch_recent_news(window_minutes=5)
+    try: 
+        utc_now = datetime.datetime.utcnow()
+        published_since = (utc_now - datetime.timedelta(minutes=5)).strftime('%Y-%m-%dT%H:%M:%S')
+        news = fetch_recent_news(published_since)
         seen_ids = set()
 
         for item in news:
