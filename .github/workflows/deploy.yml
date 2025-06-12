@@ -47,7 +47,7 @@ jobs:
       - name: 🗂️ Create ZIP Package for Deployment
         shell: pwsh
         run: |
-          Write-Host "🛠️ Creating ZIP from: IntradayAlert, shared, host.json, requirements.txt, .python_packages"
+          Write-Host "🛠️ Creating ZIP from: IntradayAlert, GenerateWatchlist, shared, ibkr_prscanner.py, host.json, requirements.txt, .python_packages"
           mkdir build -Force
           Copy-Item -Recurse -Force IntradayAlert,shared,host.json,requirements.txt,.python_packages build
           Compress-Archive -Path build\* -DestinationPath function.zip
